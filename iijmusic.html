@@ -1,0 +1,85 @@
+<head><title>(i*i)%j music</title>
+<script src="p5.min.js"></script>
+<script>var _p5=new p5(0,"c",0);//direct the global instance to <div id="c">
+var AC,ACSRC;//an audio context and source used later
+function setup(){
+  createCanvas(320,320);
+}
+function draw(){
+  let c=color(100+random(155),100+random(155),200+random(55),100);
+  fill(c);stroke(c);
+  ellipse(random(width),random(height),5+random(width/8),5+random(height/8));
+}
+function play(){//before editing we create an audiocontext then replace this func
+  try{if(!AC)AC=new (window.AudioContext || window.webkitAudioContext)();}
+  catch(error){window.alert("No WebAudioAPI support. "+error);}
+}
+</script></head>
+<html><body onload="play();" style="font-family:Verdana;">
+<b>(i*i)%j Music:</B> easy pattern<br><table><tr valign="top"><td>
+<div id="c" style="width:321px;height:321px"></div>
+<textarea id="txtMuz" cols="40" rows="15" wrap="off" spellcheck="false" 
+ autocorrect="off" style="font-family:Lucida Console;">
+function ntof(n){return Math.pow(2.,n/12.);}
+let blen=AC.sampleRate*4.65;//1 channel
+let buf=AC.createBuffer(1,blen,AC.sampleRate);
+var cd=buf.getChannelData(0);
+for(var k=0;k<blen;k++){//fill data
+  var i=Math.floor(k/7000);
+  var n=((i%32)<24?1:2);
+  var freq=55.*ntof(((i*i*n)%64));
+  freq*=k/AC.sampleRate;
+  cd[k]=(freq%1)-.5-
+   (((freq*8.+Math.sin(freq*.03)*.05)%1)-.5)*.5;
+  if(k>=1024)cd[k]+=cd[k-1024]*.5;//echo
+}
+ACSRC=AC.createBufferSource();
+ACSRC.buffer=buf;
+ACSRC.connect(AC.destination);
+ACSRC.loop=true;
+ACSRC.start(0);
+</textarea><br>
+<button id='btnEval' onclick="try{if(ACSRC)ACSRC.stop();window.play=function(){eval(txtMuz.value);};play();}catch(e){alert(e);}">
+Run</button></td><td>
+The p5.sound.js module(s) will not run serverless but thats fine because
+below it lies the WebAudioAPI which is quite easy to use to fill buffers
+with music, effects, etcetera through code. We will once again use our
+(i*i)%j magic this time to create MIDI note numbers. When j is a power of 2 you
+get a nice beat pattern. Notes could be shifted to a scale or simply 
+tossed but I found this pattern interesting without using a musical scale.
+<br><br>
+Its bad net edicate to start sound without the user requesting it so click
+run to start. It takes some time to fill an audio buffer because we are using
+eval to run the example code. Without eval it fills quickly.<br><br>
+This code uses 2 javascript global variables AC the audio context and ACSRC
+an audio context source (wraps a buffer). So the steps are:<br>
+1) AC=window.AudioContext();//create an audio context<br>
+2) buf=AC.createBuffer(channels, length, sampleRate);//create a buffer<br>
+3) cd=buf.getChannelData(channel);//get the channel data array<br>
+4) for(i=0;i&ltlength;i++)cd[i]=fract(i*freq/sampleRate);//fill the data<br>
+5) ACSRC=AC.createBufferSource();//create buffer source<br>
+6) ACSRC.buffer=buf;ACSRC.connect(AC.destination);//connect buffer to context<br>
+7) ACSRC.start(0);//play it!<br>
+The buffer(s) are non-interleaved (seperated into right and left channels)
+32 bit floats from -1 to +1. Multiple buffers can play simultaneously. Nice!
+<br>Some <b>waveforms:</b><br>
+<ul>
+<li>Sine: sin(PI*2*freq*time)</li>
+<li>Saw: 2.*fract(freq*time)-1</li>
+<li>Triangle: 4*(abs(fract(freq*time)-.5)-.25)</li>
+<li>FM Synth: sin(PI*2*freq*time+PI*2*sin(PI*2*freq*time*harmonic))</li>
+</ul>
+<br>Some <b>envelopes:</b> nt=(time since note-on)/(note length)<br>
+<ul>
+<li>Saw: fract(nt)*wave</li>
+<li>Sin: sin(pow(nt,decay)*PI)*wave</li>
+<li>Exp: (1.-exp(-nt*attack))*wave*exp(-nt*falloff)</li>
+</ul>
+Some <b>FX:</b>
+<ul>
+<li>Gain: Sound(time)*gain</li>
+<li>Echo: Sound(time)+Sound(time-1)*.5 or repeating Sound(time)+=Sound(time-1)*.5</li>
+<li>Chorus: Sound(time)+Sound(time+sin(time*rate)*depth)</li>
+<li>Clip: clamp(Sound(time),-cutoff,cutoff)</li>
+</ul>
+</td></tr></table></body></html>

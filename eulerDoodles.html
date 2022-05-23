@@ -1,0 +1,27 @@
+<html><head><title>Euler Doodles</title>
+<script src="p5.min.js"></script>
+<script>
+let W=400,H=400,angle=0.,x=0.,y=0.,ox=0.,oy=0.,j=257,i=0,n=1;
+function setup(){
+  x=y=ox=oy=.5*W-7.5;
+  createCanvas(W,H);
+  background(0,0,20);
+  stroke(255,127,63);
+}
+function draw(){
+  angle=2.*PI*((((((i*i)%j)*i)%j)*n)%j)/j;
+  x+=15.*cos(angle);y+=10.*sin(angle);
+  push();
+  stroke(0);
+  strokeWeight(2);
+  line(ox,oy,x,y+1);
+  pop();
+  line(ox,oy,x,y);
+  ox=x;oy=y;
+  if(i>j){
+    stroke(128+random(127),random(127),random(63));
+    i=0;n+=1;angle=0.;x=y=ox=oy=.5*W;
+  }else i++;
+}
+</script></head>
+<body>Euler Doodles 2*PI*(i*i*i)%j</body></html>

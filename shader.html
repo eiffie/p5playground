@@ -1,0 +1,57 @@
+<head><title>shader</title>
+<meta charset="utf-8" />
+<script src="p5.min.js"></script>
+<script>var _p5=new p5(0,"c",0);//direct the global instance to <div id="c">
+function runp5(){
+  if(_p5)_p5.remove();//remove last p5 instance
+  _p5=new p5(0,"c",0);//no sketch, use html element id=="c"
+}
+function setup(){
+  createCanvas(320,320,WEBGL);
+  setup.sdr=createShader("precision highp float; varying vec2 vPos;"+
+   "attribute vec3 aPosition;void main(){vPos=(gl_Position=vec4(aPosition,1.)).xy;}",
+   txtShad.value);
+  shader(setup.sdr);
+}
+function draw(){
+  setup.sdr.setUniform("frame",frameCount);
+  quad(-1,-1,1,-1,1,1,-1,1);
+}
+</script></head>
+<html><body style="font-family:Verdana;">
+<b>Shader Example:</B> green box swaps position with red diamond<br>
+<table><tr valign="top"><td>
+<div id="c" style="width:321px;height:321px"></div>
+<textarea id="txtShad" cols="40" rows="15" wrap="off" spellcheck="false" 
+ autocorrect="off" style="font-family:Lucida Console;">
+precision highp float; varying vec2 vPos;
+uniform int frame;
+void main(){
+  float tym=float(frame)*.25;
+  vec2 p=abs(2.*fract(vPos*tym)-1.);
+  float g=min(p.x,p.y)-.25;
+  float r=1.-p.x-p.y;
+  vec3 O=vec3(r,g,0)*(1.-length(vPos));
+  gl_FragColor=vec4(O,1.);
+}
+</textarea><br>
+<button id='btnEval' onclick='runp5();'>Run</button></td><td>
+Of course I needed to try shaders so here is a quick example.
+Now the textarea will be used to code a fragment shader. p5 makes
+setup simple by supplying a createShader(VS,FS) function that
+takes strings for the vertex and fragment shaders. You supply
+uniform variables, passed from CPU to GPU, with the setUniform(name,value)
+function then draw a quad. If you look at the html source you will see I'm using the global instance
+of p5 which calls window.setup and window.draw rather than a sketch closure.
+Its easier to read this way and you probably only want 1 webgl shader running
+at a time on your web page!
+<br><br>
+We will just edit the fragment shader that returns a color for each
+pixel on the screen. The varying vec2 vPos gives the position on the
+canvas as (-1,-1) lower left to (1,1) upper right. I added the
+frameCount as a uniform to animate the image. Other data can be
+passed to the shader as well like keystrokes and mouse movement
+so games will definitely be forthcoming.<br><br>
+This shader just demonstrates the odd behavior that when you zoom
+out of a grid the centers and corners of the grid appear to change position!
+</td></tr></table></body></html>

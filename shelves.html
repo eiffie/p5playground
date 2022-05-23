@@ -1,0 +1,66 @@
+<head><title>warped shelves</title>
+<script src="p5.min.js"></script>
+<script>var _p5;
+function runp5(){
+  if(_p5)_p5.remove();//remove last p5 instance
+  let s=function(p){//create a sketch closure with preload, setup and draw
+    p.preload=function(){};//do nothing
+    p.setup=function(){with(p)eval(txtSetup.value);};//does everything
+  }
+  _p5=new p5(s,"c",0);
+}
+</script></head>
+<html><body onload="runp5();" style="font-family:Verdana;">
+<b>Warped Shelves:</b> simple setup function<br>
+<table><tr valign="top"><td>
+<div id="c" style="width:321px;height:321px"></div>
+<textarea id="txtSetup" cols="40" rows="15" wrap="off" spellcheck="false" 
+ autocorrect="off" style="font-family:Lucida Console;">
+let W=320,H=320;//resolution
+createCanvas(W,H);//p5 drawing surface
+fill(0);//black between boxes
+var ry=[];ry.push(0);//array of boxes
+for(let i=1;i<16;i++){
+  ry.push(ry[i-1]+random(20)+20);
+  let x=random(40);
+  let d=ry[i]-ry[i-1];
+  stroke(0);
+  while(x<W){//boxes
+    rect(x,ry[i-1]+1,d,d-1);
+    x+=d*2;
+  }
+  stroke(96);//shelves
+  line(0,ry[i],W,ry[i]);
+}
+</textarea><br>
+<button id="btnEval" onclick="try{runp5();}catch(error){alert(error);}">Run</button>
+</td><td>
+There are 3 functions in p5 that you write the code for to display your sketch.<br>
+The function <b>preload</b>() is used to load resources like images and video
+before the sketch starts. I probably won't cover that much as I'm trying to
+keep the examples as 'stand alone' as possible.<br>
+The function <b>setup</b>() is used to start the sketch. You normally create
+and set the size of the canvas the sketch is drawn on with createCanvas(WIDTH,HEIGHT);
+where WIDTH and HEIGHT are in pixels.<br>
+The function <b>draw</b>() is called continuously until a noloop() is reached
+or the browser leaves the page.<br><br>
+I will draw an illusion I first saw on <a href="shadertoy.com/view/XsBXWR">ShaderToy.com</a> by
+the super user <a href="shadertoy.com/user/FabriceNeyret2">FabriceNeyret2.</a> I also like drawing with the GPU there as
+<a href="shadertoy.com/user/eiffie">eiffie.</a>. p5 can also be used to run shaders so look
+forward to that. All the lines and boxes are straight but your brain deceives you!
+<br><br>
+If you are writing a non editable version the code in the textarea is wrapped by<br>
+function setup(){...}<br>
+So a complete script section looks like:<br>
+<code>
+&ltscript src="p5.min.js"&gt&lt/script&gt&ltscript&gt<br>
+function setup(){<br>
+&nbsp  createCanvas(320,320);//whatever size works<br>
+&nbsp  background(0);//black background<br>
+&nbsp  stroke(255);fill(255);//white pen and brush<br>
+&nbsp  line(0,0,320,320);//draw a diagonal line<br>
+}<br>
+&lt/script&gt<br>
+</code>
+</td></tr></table>
+</body></html>

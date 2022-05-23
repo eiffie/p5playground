@@ -1,0 +1,68 @@
+<head><title>Euler Daisies</title>
+<script src="p5.min.js"></script>
+<script>var _p5;
+function runp5(){
+  if(_p5)_p5.remove();//remove last p5 instance
+  let s=function(p){//create a sketch closure with preload, setup and draw
+    p.preload=function(){};//do nothing
+    p.setup=function(){with(p)createCanvas(320,320);};//set resolution
+    p.draw=function(){with(p)eval(txtDraw.value);};//run textarea code
+  }
+  _p5=new p5(s,"c",0);
+}
+</script></head>
+<html><body onload="runp5();" style="font-family:Verdana;">
+<b>Euler Daisies:</B> euler spirals with a twist<br>
+<table><tr valign="top"><td>
+<div id="c" style="width:321px;height:341px"></div>
+Use the slider to set the # of petals.<br>
+<textarea id="txtDraw" cols="40" rows="15" wrap="off" spellcheck="false" 
+ autocorrect="off" style="font-family:Lucida Console;">
+const d=257;
+function newDaisy(){
+  background(255);
+  stroke(128+random(127),random(192),random(255));
+  draw.i=0.;draw.n+=1;
+  draw.x=draw.y=.5*width;
+}
+if(frameCount<2){//initial setup
+  draw.slider=createSlider(2,8,5);
+  draw.n=0;newDaisy();
+}
+let p=draw.slider.value();
+if(draw.n%p<1)draw.n+=1;//skip p'th
+let angle=(draw.i*(draw.i+1./p)*draw.n)%d;
+angle*=2.*PI/d;
+let ox=draw.x,oy=draw.y;
+draw.x+=6.*cos(angle);
+draw.y+=6.*sin(angle);
+push();stroke(0);
+line(ox,oy+1,draw.x,draw.y+1);
+pop();
+line(ox,oy,draw.x,draw.y);
+if(draw.i>d*p*1.1)newDaisy();
+else draw.i+=1.;
+</textarea><br>
+<button id='btnEval' onclick='runp5();'>Run</button></td><td>
+You may have seen Euler Spirals before. You iterate the following:
+Point p(x,y)+=(cos(a),sin(a)), Angle a+=i*c, Iterator i+=1, Constant c=c.
+What you get are spirals that branch out somewhat predictably looping back
+to the start then heading the opposite way, then back to the start again.
+If you run the iterations long enough you
+invariably accumulate errors due to precision loss particularly in the
+angle summation. We can reduce that error significantly by calculating
+the sum directly without summation. sum(i*c)=c*sum(i) so we just need 
+a formula for (1+2+3+...+i)*c which is =i*(i+1)*c/2. 
+What happens when we change (i+1) to (i+1/p)? 
+We get p petals on our Euler Daisies.<br><br>
+To select p the # of petals we add a slider control with the createSlider
+function having as parameters (lowValue, highValue, initialValue).
+As in previous examples push and pop are used to temporarily save
+the pen, brush and other drawing properties. Javascript allows nested
+functions so newDaisy() handles initializing for the next daisy.<br><br>
+In our code the constant c is seperated into numerator n and denominator d.
+n is then incremented in newDaisy() but if n%p==0 the flower will
+be degenerate and march off screen in 1 direction so it is skipped.
+<br><br>To see Euler Spirals slide the slider all the way to the left
+for 2 petals. What happens if you take <a href="EulerDoodles.html">(i*i*i)?</a>
+</td></tr></table></body></html>
