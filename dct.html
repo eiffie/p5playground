@@ -1,4 +1,4 @@
-<head><title>DCT codec</title>
+<html><head><title>DCT codec</title>
 <script src="p5.min.js"></script>
 <script>var _p5;
 function runp5(){
@@ -9,12 +9,6 @@ function runp5(){
   }//setup sets resolution and draws the image created in preload
   _p5=new p5(s,"c",0);
 }
-</script></head>
-<html><body onload="runp5();" style="font-family:Verdana;">
-<b>DCT codec:</B> easy decompress<br><table><tr valign="top"><td>
-<div id="c" style="width:129px;height:161px"></div>
-<textarea id="txtPreL" cols="40" rows="25" wrap="off" spellcheck="false" 
- autocorrect="off" style="font-family:Lucida Console;">
 //Oooo---- The o's are 3 bit samples, O is 4 bits.
 //ooo----- The min and max for each cell position
 //oo------ over the image is saved in floats.
@@ -64,9 +58,15 @@ let DCT=[//320 integers of 31 bits each with 4&3 bit samples, 10 cells of 8x8
 886805058,647148978,647737793,920359360,920360368,920360368,920360368,920360368, 
 920360368,920360368,920360368,920884784,920883760,685478320,614176193,920360384, 
 920360368,920360368,920359344,920360368,920360368,920360368,920360368,920360368];
-let W=128,H=160,N=8;
 let mn=[0.,-.827,-.399,-.278,-.652,-.334,-.154,-.342,-.16,-.123];
 let mx=[3.984,.859,.414,.166,.639,.451,.165,.532,.213,.171];
+</script></head>
+<body onload="runp5();" style="font-family:Verdana;">
+<b>DCT codec:</B> easy decompress<br><table><tr valign="top"><td>
+<div id="c" style="width:129px;height:161px"></div>
+<textarea id="txtPreL" cols="40" rows="25" wrap="off" spellcheck="false" 
+ autocorrect="off" style="font-family:Lucida Console;">
+let W=128,H=160,N=8;
 preload.img=createImage(W*2,H);
 preload.img.loadPixels();//pixel array
 for(let Y=0;Y<20;Y++)for(let X=0;X<16;X++){

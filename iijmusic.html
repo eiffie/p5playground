@@ -1,4 +1,4 @@
-<head><title>(i*i)%j music</title>
+<html><head><title>(i*i)%j music</title>
 <script src="p5.min.js"></script>
 <script>var _p5=new p5(0,"c",0);//direct the global instance to <div id="c">
 var AC,ACSRC;//an audio context and source used later
@@ -15,7 +15,7 @@ function play(){//before editing we create an audiocontext then replace this fun
   catch(error){window.alert("No WebAudioAPI support. "+error);}
 }
 </script></head>
-<html><body onload="play();" style="font-family:Verdana;">
+<body onload="play();" style="font-family:Verdana;">
 <b>(i*i)%j Music:</B> easy pattern<br><table><tr valign="top"><td>
 <div id="c" style="width:321px;height:321px"></div>
 <textarea id="txtMuz" cols="40" rows="15" wrap="off" spellcheck="false" 
