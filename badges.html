@@ -1,0 +1,86 @@
+<html><head><title>Badge Builder</title><script src='p5.min.js'></script>
+<script>
+var cp,params;
+function setup(){
+  let cnv=createCanvas(320,320);
+  cnv.parent("C");
+  params=getURLParams();
+  let clr=color("#FF7F3F");
+  if(params.CLR)storeItem("CLR",params.CLR);//store cookie if form passed color
+  else if(getItem("CLR"))params.CLR=getItem("CLR");//else get cookie if exists
+  if(params.CLR)clr=color("#"+params.CLR);//if form submit or cookie change default
+  cp=createColorPicker(clr);
+  cp.parent("FRM");
+  cp.input(redraw);
+  if(params.S)storeItem("S",params.S);
+  else params.S=getItem("S");
+  if(params.S=="C")radCircle.checked=true;
+  else if(params.S=="H")radHeart.checked=true;
+  else if(params.S=="R")radRect.checked=true;
+  else if(params.S=="S")radStar.checked=true;
+  if(params.F)fname.value=params.F;
+  if(params.L)lname.value=params.L;
+  noLoop();
+}
+function draw(){
+  let clr=cp.color();
+  col.value=hex(red(clr)*65536+green(clr)*256+blue(clr),6);
+  stroke(lighten(clr));fill(clr);
+  if(params.S=="C")circle(160,160,300);
+  else if(params.S=="H"){
+    arc(160,160,280,320,PI*15./8.,PI*25./8.,CHORD);
+    arc(100,130,150,150,PI,TWO_PI);
+    arc(220,130,150,150,PI,TWO_PI);
+  }
+  else if(params.S=="R")rect(10,10,300,300);
+  else if(params.S=="S"){
+    triangle(160,10,310,250,10,250);
+    triangle(10,70,310,70,160,310);
+  }
+  stroke(0);fill(255);
+  if(params.F){
+    let n=params.F.length;
+    textSize(50-n*1.2);
+    n=textWidth(params.F);
+    text(params.F,160-n/2,140);
+  }
+  if(params.L){
+    let n=params.L.length;
+    textSize(50-n*1.2);
+    n=textWidth(params.L);
+    text(params.L,160-n/2,220);
+  }
+}
+function lighten(c){return color(min(255,c.r*1.25),min(255,c.g*1.25),min(255,c.b*1.25));}
+</script></head><body style="font-family:Verdana;"><h2>Badge Builder</h2>
+<table><tr valign="top"><td>
+<form id="FRM" action="badges.html" method="get">
+<table><tr valign="top"><td><label for="fname">First Name:</label></td><td><input type="text" id="fname" name="F"></td></tr>
+<tr><td><label for="lname">Last Name:</label></td><td><input type="text" id="lname" name="L"></td></tr></table>
+<input type="radio" id="radCircle" name="S" value="C" checked><label for="radCircle">circle</label>
+<input type="radio" id="radHeart" name="S" value="H"><label for="radHeart">heart</label>
+<input type="radio" id="radRect" name="S" value="R"><label for="radRect">rectangle</label>
+<input type="radio" id="radStar" name="S" value="S"><label for="radStar">star</label><br>
+<input type="hidden" id="col" name="CLR">
+<input type="submit">
+</form>
+<div id="C"></div><br></td><td>
+HTML forms are useful for gathering a number of user inputs. Our form has text
+and radio button inputs for creating a name tag. View the html source of this
+page and scroll down to the &ltform&gt tag. The action="badges.html" that's this
+page. The method="get" will add the form input to the end of the url like
+this. <code>.../badges.html?F=my&L=name&S=S</code> The format is ?, parameter name,
+=, value[, ampersand ...] Form data sent with the get
+method is unencrypted so short cryptic parameter names help a little.
+The color picker isn't a form element but supplied by p5. We create a hidden
+input element and assign the color to it.
+<br><br>
+Once the form has been submitted the javascript p5 setup function attempts to
+build a badge from it. Never expect form data to be valid even if the page
+validates before submitting since the user could just type ?param=value...<br><br>
+Besides forms this example is also working with text, color picker and cookies. 
+The name lengths are checked to determine the font size. 
+The textWidth function helps to center the text. Cookies let us persist data from
+one visit to the next and annoy the user at the same time!<br><br>
+Now back to the <a href='index.html'>index.</a>
+</td></tr></table></body></html>

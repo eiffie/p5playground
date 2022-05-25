@@ -127,25 +127,22 @@ function setup(){
 function draw(){
   Verlet();
   u[0]+=fFrameSecs;
-  if(keyIsDown(LEFT_ARROW))iLeft=1.;
-  if(keyIsDown(RIGHT_ARROW))iRight=1.;
+  if(keyIsDown(LEFT_ARROW)){iLeft=1.;fBlast=.05;}
+  if(keyIsDown(RIGHT_ARROW)){iRight=1.;fBlast=.05;}
   u[1]=iLeft;u[2]=iRight;
   theShader.setUniform("u",[u[0],u[1],u[2],v[0].x,v[0].y,v[1].x,v[1].y,v[2].x,v[2].y]);
   quad(-1,-1,1,-1,1,1,-1,1);
   if(!mouseIsPressed)iLeft=iRight=0.;
 }
 function mouseClicked(){
-  if(mouseX<H/2)iLeft=1.;
-  else iRight=1.;
-  fBlast=.1;
+  if(mouseX<H/2)iLeft=1.; else iRight=1.;
+  fBlast=.1;//a click only happens once so more thrust is applied
   return false;
 }
-function doubleClicked(){
-  return false;
-}
+function doubleClicked(){return false;}
 </script></head>
 <body  style="font-family:Verdana;"><b>Bouncy</b> a small demo game
-<table><tr valign="top"><td><div id="c"></div></td><td>
+<table><tr valign="top"><td><div id="c" style="touch-action: none;"></div></td><td>
 Use the arrow keys to thrust. Green is left arrow, blue is right. Or on a touch
 screen tap left for green, right for blue thruster.
 Don't get them mixed up! Get to the top to achieve Jedi status. (there is no top)
