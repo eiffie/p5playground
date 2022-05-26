@@ -1,0 +1,97 @@
+<html><head><title>camera</title>
+<script src="p5.min.js"></script>
+<script>
+var cptr,cnvs,fltr,fval=0,efx,efxv=0,tnt=0;
+function setup(){
+  cnvs=createCanvas(320,240);
+  cnvs.parent("c");
+  cptr=createCapture(VIDEO);
+  cptr.hide();
+  let btnSave=createButton("Save");
+  btnSave.parent("c");
+  btnSave.mousePressed(saveCpt);
+  fltr=createSelect();
+  fltr.option("NORMAL",0);
+  fltr.option("THRESHOLD",THRESHOLD);
+  fltr.option("GRAY",GRAY);
+  fltr.option("OPAQUE",OPAQUE);
+  fltr.option("INVERT",INVERT);
+  fltr.option("POSTERIZE",POSTERIZE);
+  fltr.option("BLUR",BLUR);
+  fltr.option("ERODE",ERODE);
+  fltr.option("DILATE",DILATE);
+  fltr.selected(0);
+  fltr.changed(SetFilter);
+  fltr.parent("c");
+  efx=createSelect();
+  efx.option("NORMAL",0);
+  efx.option("ZOOM",1);
+  efx.option("MASK",2);
+  efx.option("BITCRUSH",3);
+  efx.option("USERDEF",4);
+  efx.option("SLOWACCUM",5);
+  efx.option("EXPLODE",6);
+  efx.option("WASH",7);
+  efx.option("USERALPHA",8);
+  efx.selected(0);
+  efx.changed(SetEFX);
+  efx.parent("c");
+}
+function draw(){
+  var cp;
+  if(efxv>4 && tnt==0){tint(255,16);tnt=1;}else if(efxv<3 && tnt==1){tnt=0;tint(255,255);}
+  if(efxv==6)image(cptr,width/4,height/4,width/2,height/2);
+  else if(efxv==7)image(cptr,width/4,0,width-width/4,height);
+  else image(cptr,0,0,width,height);
+  if(fval!=0)filter(fval);
+  if(efxv==1)copy(width/4,height/4,width/2,height/2,0,0,width,height);
+  else if(efxv==2 || efxv==3){
+    loadPixels();
+    let d = pixelDensity(),imgsize=4*d*d*width*height;
+    if(efxv==2)for(let i=0;i<imgsize;i++){if(pixels[i]<48)pixels[i]=(i%4)>0?0:255;}
+    else for(let i=0;i<imgsize;i++)pixels[i]=(pixels[i]>>6)<<6;
+    updatePixels();
+  }
+  else if(efxv==4 || efxv==8)eval(txtCode.value);
+  else if(efxv==6)copy(10,10,width-20,height-20,0,0,width,height);
+  else if(efxv==7)copy(10,0,width-10,height,0,0,width,height);
+}
+function saveCpt(){saveCanvas(cnvs,"p5CamTest","jpg");}
+function SetFilter(){fval=fltr.value();}
+function SetEFX(){efxv=efx.value();}
+function loadme(){
+  document.getElementById('htmlbx').value=document.documentElement.innerHTML;
+}
+</script>
+</head>
+<body onload="loadme();" style="font-family:sans-serif;">
+<h2>Camera Filter and Effects</h2>
+<table><tr valign="top"><td><div id="c"></div>
+<textarea id="txtCode" cols="40" rows="8" wrap="off" spellcheck="false" 
+ autocorrect="off" style="font-family:Lucida Console;">
+loadPixels(); 
+let d = pixelDensity(),imgsize=4*d*d*width*height; 
+for(let i=0;i<imgsize;i++)if((i%4)!=3) 
+ pixels[i]= 
+ (abs(pixels[i]-pixels[(i+8)%imgsize])*2)%256;
+else pixels[i]=255;
+updatePixels();
+</textarea></td>
+<td>
+p5's createCapture makes it easy to grab video and stills. There are also
+built in filters (1st list) but its more fun to create your own (2nd list).
+Its editing on the fly so you may want to select NORMAL before editing the
+code and selecting USERDEF or USERALPHA. They both use the same code only 
+USERALPHA has overlayed the camera image with 1/16th opacity.<br><br>
+You can save your masterpiece by clicking the save button. A file named
+p5CamTest.jpg will be created in your download directory. Saving twice
+will create p5CamTest (1).jpg etc.<br><br>
+For more complicated filters shaders will be utilized but this is fine for
+prototypes and just general playing around. There was a bug in noTint()
+that was causing the camera to stall so instead I've used tint(255,255)
+which is a NOP tint.
+</td></tr></table><br>
+This is the html code for this page. It is not dynamic. Just here for reference.
+<textarea id="htmlbx" cols="80" rows="12" wrap="off" spellcheck="false"
+ style="font-family: Lucida Console;"></textarea>
+</body></html>

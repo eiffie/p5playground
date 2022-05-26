@@ -52,7 +52,11 @@ function draw(){
   }
 }
 function lighten(c){return color(min(255,c.r*1.25),min(255,c.g*1.25),min(255,c.b*1.25));}
-</script></head><body style="font-family:Verdana;"><h2>Badge Builder</h2>
+function loadme(){
+  document.getElementById('htmlbx').value=document.documentElement.innerHTML;
+}
+</script></head>
+<body  onload="loadme();" style="font-family:sans-serif;"><h2>Badge Builder</h2>
 <table><tr valign="top"><td>
 <form id="FRM" action="badges.html" method="get">
 <table><tr valign="top"><td><label for="fname">First Name:</label></td><td><input type="text" id="fname" name="F"></td></tr>
@@ -83,4 +87,7 @@ The name lengths are checked to determine the font size.
 The textWidth function helps to center the text. Cookies let us persist data from
 one visit to the next and annoy the user at the same time!<br><br>
 Now back to the <a href='index.html'>index.</a>
-</td></tr></table></body></html>
+</td></tr></table>
+<textarea id="htmlbx" cols="80" rows="15" wrap="off"  spellcheck="false"
+ style="font-family: Lucida Console;"></textarea>
+</body></html>
