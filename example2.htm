@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html><head><title>Pong</title>
+<meta charset="utf-8" />
+<script id="fragShader" type="x-shader/x-fragment">
+precision mediump float;
+uniform float u[8];//required
+uniform float U[8];//optional, any size
+#define rez vec2(u[0],u[1])
+#define time u[2]
+#define game u[3]
+#define key u[4]
+#define mouse vec3(u[5],u[6],u[7])
+//paddles, ball and scores
+#define pdl vec2(U[0],U[1])
+#define pdr vec2(U[2],U[3])
+#define bp vec2(U[4],U[5])
+#define score vec2(U[6],U[7])
+#define RADIUS 0.035
+
+float tube(vec2 pa, vec2 ba){return length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0));}
+float DE(in vec2 p){
+   const vec2 pd=vec2(0.,.1);
+   float dP=min(tube(p-pdl,pd),tube(p-pdr,pd));
+   float dB=length(p-bp);
+   return min(dB,dP)-RADIUS;
+}
+float segment(vec2 uv){//from Andre https://www.shadertoy.com/view/Xsy3zG
+   uv = abs(uv);return (1.0-smoothstep(0.0,0.28,uv.x)) * (1.0-smoothstep(0.4-0.14,0.4+0.14,uv.y+uv.x));
+}
+float sevenSegment(vec2 uv,int num){
+   uv=(uv-0.5)*vec2(1.5,2.2);
+   float seg=0.0;if(num>=2 && num!=7 || num==-2)seg+=segment(uv.yx);
+   if (num==0 || (uv.y<0.?((num==2)==(uv.x<0.) || num==6 || num==8):(uv.x>0.?(num!=5 && num!=6):(num>=4 && num!=7) )))seg += segment(abs(uv)-0.5); 
+   if (num>=0 && num!=1 && num!=4 && (num!=7 || uv.y>0.))seg += segment(vec2(abs(uv.y)-1.0,uv.x)); 
+   return seg;
+}
+//prints a "num" filling the "rect" with "spaces" # of digits including minus sign
+float formatInt(vec2 uv, vec2 rect, float num, int spaces){//only good up to 6 spaces!
+   uv/=rect;if(uv.x<0.0 || uv.y<0.0 || uv.x>1.0 || uv.y>1.0)return 0.0;
+   uv.x*=float(spaces);
+   float place=floor(uv.x);
+   float decpnt=floor(max(log(num)/log(10.0),0.0));//how many digits before the decimal place
+   uv.x=fract(uv.x);
+   num+=0.000001*pow(10.,decpnt);
+   num /= pow(10.,float(spaces)-place-1.0);
+   num = mod(floor(num),10.0);
+   return sevenSegment(uv,int(num));
+}
+void main(){
+  vec2 uv=(2.*gl_FragCoord.xy-rez)/rez.y;
+  float d=DE(uv);
+  d=smoothstep(2./rez.y,0.,d);
+  gl_FragColor=vec4(d,d,d,1.);
+  uv=gl_FragCoord.xy/rez;
+  d=formatInt(uv-vec2(0.1,0.9),vec2(0.1,0.05),score.x,2);
+  d+=formatInt(uv-vec2(0.8,0.9),vec2(0.1,0.05),score.y,2);
+  gl_FragColor=mix(gl_FragColor,vec4(1.0,0.0,0.0,1.0),d);
+}
+</script>
+<script src="WAG.js"></script>
+<script>
+let U={plx:-1.,ply:0.,prx:1.,pry:0.,bx:0.,by:0.,scoreL:0.,scoreR:0.};
+let dtx=0.01,dty=0.004;
+function game(){
+  U.bx+=dtx;U.by+=dty;
+  if(Math.abs(U.bx)>1.){dtx=-dtx;
+    if(dtx<0.){
+      if(Math.abs(U.pry-U.by+.05)>0.1){U.scoreL+=1;dty=0.;plAy(1,null);}
+      else {dty=(U.by-U.pry-.05)*.25;plAy(0,null);}
+    }else{
+      if(Math.abs(U.ply-U.by+.05)>0.1){U.scoreR+=1;dty=0.;plAy(1,null);}
+      else {dty=(U.by-U.ply-.05)*.25;plAy(0,null);}
+    }
+  }
+  if(Math.abs(U.by)>1.)dty=-dty;
+  if(G.u.key==G.DOWN_ARROW && U.pry>-1.)U.pry-=0.01;
+  if(G.u.key==G.UP_ARROW && U.pry<1.)U.pry+=0.01;
+  U.ply+=(U.by>U.ply?0.01:-0.01);
+}
+
+function ping(k){t=k/24000.;return Math.sin(t*t*2000.)*(1.-t);}
+function pong(k){t=k/24000.;return Math.sin(t*1000.)*(1.-t);}
+
+function setup(){
+  A([{samps:24000,fill:ping},{samps:24000,fill:pong}]);
+  G("glcanvas","fragShader",{onFrame:game},U);
+}
+
+function loadme(){
+  document.getElementById('htmlbx').value=document.documentElement.innerHTML;
+}
+</script></head>
+<body onload="loadme();setup();" bgcolor="gainsboro" style="font-family:sans-serif;">
+<b>Ping Pong:</b> Use the arrow keys to play.
+<table><tr valign="top"><td><div style="touch-action: none;">
+<canvas id="glcanvas" width="512" height="320"></canvas></div>
+<button onclick='fullScreen(document.getElementById("glcanvas"));'>Full Screen</button>
+</td><td>
+Now things have gotten a bit more complicated. We've added some sounds and game logic.
+You see the call to G() has added an options object. We request the optional callback
+to perform logic onFrame (on each frame of the animation). Also the object U is passed
+which holds all our user defined uniform float values. Add as many as you like.
+You can also pass an array if you have too many to name. We've added uniforms
+for the paddles, ball and scores and update them in the function game() which checks
+user key strokes thru the required uniform array G.u. So little G.u are the built in
+required uniform floats and big U is what you define if needed.<br><br>
+We also call the function A() to create sound buffers which can be played back using
+the plAy() function. A() takes a single parameter object array which is required to
+specify the # of samples 'samps' and the callback function which will 'fill' the buffer.
+The callback functions we created, ping and pong, take the parameter k the ordinal position
+of the sample in the buffer and sets the amplitude from -1 to 1. In the buffer options
+sent to A() you can also set 'echo:#' meaning amp(k)+=amp(k-#)/2 where # is some number
+and 'rate:#' which is the sampling rate of the recording in case you supply recorded
+data or just want to save space/fill time. The default is typically 48000. The plAy()
+function also takes options for setting 'volume' and 'rate' (0..), 'detune' -+ cents,
+'randomize' true will play at a random pitch up to 10% higher, 'loop' if a song repeats
+and startTime if you are creating a drum machine etc. Both A() and plAy() had options
+to set the rate. A() sets the recorded sampling rate so WebAudio can adjust it keep the
+pitch and plAy() which uses rate to modify the pitch each time it is played.
+<br>On to the <a href="example3.htm">last example!</a>
+</td></tr></table>
+<textarea id="htmlbx" cols="80" rows="15" wrap="off"  spellcheck="false"
+ style="font-family: Lucida Console;"></textarea></body></html>

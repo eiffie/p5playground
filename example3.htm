@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html><head><title>BrickOut</title>
+<meta charset="utf-8" />
+<script id="fboShader" type="x-shader/x-fragment">
+precision mediump float;
+uniform sampler2D fbo;
+uniform float u[8];
+#define rez vec2(u[0],u[1])
+#define time u[2]
+#define game u[3]
+#define key u[4]
+#define mouse vec3(u[5],u[6],u[7])
+#define BX 8.
+#define BY 16.
+#define SPD .3
+#define LEFT_ARROW 37.
+#define RIGHT_ARROW 39.
+float brick(vec2 v){return floor(BX*v.x)+BX*floor(BY*v.y);}
+float rrect(vec2 p, vec2 r){return length(max(abs(p.xy)-r,0.))-0.002;}
+float pdl(vec2 v, float x){v-=vec2(x,.05);return rrect(v,vec2(.05,.01));}
+vec3 c(vec2 b){
+  vec2 v=pow(sin(3.14159*fract(b*vec2(BX,BY))),vec2(.25));
+  return vec3(v,fract(brick(b)*brick(b)*0.001))*vec3(1.,.75,.5);
+}
+void main(){
+ vec2 U=gl_FragCoord.xy;
+ vec4 O=texture2D(fbo,U/rez);
+ if(time<1. || key==32.){//reset, logic: 0:bx,by,dx,dy 1:px,tm,sc,st
+   if(U.y<1. && U.x<2.){if(U.x<1.)O=vec4(.5,.1,0.,1.);else O=vec4(.5,time,0.,3.);}
+   else if(U.y<rez.y*.5 || (U.y>.75*rez.y && U.y<0.875*rez.y))O=vec4(0);//empty areas
+   else O=vec4(.5);
+ }else{//playing
+   vec4 L1=texture2D(fbo,vec2(.5,.5)/rez),L2=texture2D(fbo,vec2(1.5,.5)/rez);
+   L2.zw=abs(L2.zw);//remove flags
+   if(L2.w<1.){gl_FragColor=O;return;}//end game
+   if(U.y<1. && U.x<2.){//logic
+     float dt=(time-L2.y)*(1.+time*0.005);L2.y=time;
+     L1.xy+=L1.zw*dt*SPD;
+     if(L1.x<0.){L1.x=0.;L1.z=abs(L1.z);}
+     if(L1.x>1.){L1.x=1.;L1.z=-abs(L1.z);}
+     if(L1.y>1.){L1.y=1.;L1.w=-abs(L1.w);}
+     if(L1.y<0.){L2.w-=1.;L1.xy=vec2(.5,.1);L1.zw=vec2(0,1);}
+     if(key==LEFT_ARROW && L2.x>0.)L2.x-=dt*SPD;
+     if(key==RIGHT_ARROW && L2.x<1.)L2.x+=dt*SPD;
+     if(abs(L1.y-.065)<.01 && abs(L1.x-L2.x)<.05){
+       L1.zw=normalize(L1.xy-vec2(L2.x,.0));L1.w=abs(L1.w);L2.w=-L2.w;}
+     float a=texture2D(fbo,L1.xy).a;
+     if(a>0.){L1.w=-abs(L1.w);L2.z+=1.;L2.z=-L2.z;}
+     if(U.x<1.)O=L1;else O=L2;
+   }else{
+     vec2 b=U/rez;
+     if(brick(b)==brick(L1.xy))O.a=0.;
+     if(O.a==0.)O=vec4(0);else O=vec4(c(b),.5);
+     O.rgb=mix(vec3(1.,.1,.27),O.rgb,smoothstep(0.,0.02,max(0.,length(b-L1.xy))));
+     O.rgb=mix(vec3(.5,.17,1.),O.rgb,smoothstep(0.,2./rez.y,pdl(b,L2.x)));
+   }
+ }
+ gl_FragColor=O;
+}
+</script>
+<script id="fragShader" type="x-shader/x-fragment">
+precision mediump float;
+uniform sampler2D fbo;
+uniform float u[8];
+#define rez vec2(u[0],u[1])
+float segment(vec2 uv){//from Andre https://www.shadertoy.com/view/Xsy3zG
+   uv = abs(uv);return (1.0-smoothstep(0.0,0.28,uv.x)) * (1.0-smoothstep(0.4-0.14,0.4+0.14,uv.y+uv.x));
+}
+float sevenSegment(vec2 uv,int num){
+   uv=(uv-0.5)*vec2(1.5,2.2);
+   float seg=0.0;if(num>=2 && num!=7 || num==-2)seg+=segment(uv.yx);
+   if (num==0 || (uv.y<0.?((num==2)==(uv.x<0.) || num==6 || num==8):(uv.x>0.?(num!=5 && num!=6):(num>=4 && num!=7) )))seg += segment(abs(uv)-0.5);
+   if (num>=0 && num!=1 && num!=4 && (num!=7 || uv.y>0.))seg += segment(vec2(abs(uv.y)-1.0,uv.x));
+   return seg;
+}
+//prints a "num" filling the "rect" with "spaces" # of digits including minus sign
+float formatInt(vec2 uv, vec2 rect, float num, int spaces){//only good up to 6 spaces!
+   uv/=rect;if(uv.x<0.0 || uv.y<0.0 || uv.x>1.0 || uv.y>1.0)return 0.0;
+   uv.x*=float(spaces);
+   float place=floor(uv.x);
+   float decpnt=floor(max(log(num)/log(10.0),0.0));//how many digits before the decimal place
+   uv.x=fract(uv.x);
+   num+=0.000001*pow(10.,decpnt);
+   num /= pow(10.,float(spaces)-place-1.0);
+   num = mod(floor(num),10.0);
+   return sevenSegment(uv,int(num));
+}
+void main(){//gl_FragColor=vec4(0,1,0,1);return;
+  vec2 uv=gl_FragCoord.xy/rez;
+  vec4 O=texture2D(fbo,uv);
+  vec4 st=texture2D(fbo,vec2(1.5,.5)/rez);//pass events back to cpu
+  st=abs(st);
+  float d=formatInt(uv-vec2(0.05,0.05), vec2(0.1,0.05), st.z, 4);
+  d+=formatInt(uv-vec2(0.8,0.05), vec2(0.025,0.05), st.w, 1);
+  gl_FragColor=mix(O,vec4(1,0,0,1),d);
+}
+</script>
+<script src="WAG.js"></script>
+<script>
+function game(){//play sounds
+  if(G.r){
+    if(G.r[6]<0.)plAy(0,null);
+    if(G.r[7]<0.)plAy(1,null);
+  }
+}
+function ping(k){t=k/24000.;return Math.sin(t*t*2000.)*(1.-t);}
+function pong(k){t=k/24000.;return Math.sin(t*1000.)*(1.-t);}
+function setup(){
+  A([{samps:24000,fill:ping},{samps:24000,fill:pong}]);
+  G("glcanvas","fragShader",{fboScript:"fboShader",onFrame:game,returnPixels:2});
+}
+function loadme(){
+  document.getElementById('htmlbx').value=document.documentElement.innerHTML;
+}
+</script></head>
+<body onload="loadme();setup();" bgcolor="gainsboro" style="font-family:sans-serif;">
+<b>BrickOut:</b> finally an fbo example.<table><tr valign="top"><td> 
+<div style="touch-action: none;">
+<canvas id="glcanvas" width="512" height="320"></canvas></div>
+<button onclick='fullScreen(document.getElementById("glcanvas"));'>Full Screen</button>
+Press SPACE to restart.</td><td>
+So far everything could have been done just as easily in p5 but what if you want
+your game or simulation to run on the GPU? You need float frame buffers for that and
+G() sets those up in a double buffered  manner so you can read and write without conflict.
+To do that you simply add an option {fboScript:'myScript.glsl'}. But if the buffer
+handles the game logic how can we play sounds based on game play. For that you request
+the option {returnPixels:#} where # is some number smaller than the width of the canvas
+and an array of pixels are returned from the bottom left corner, (0,0) to (#,0).
+The array <b>G.r</b> is Float32 with 4*# floats in RGBA=0123 order. Put your game logic in that
+row, ie: gl_FragCoord.y<1.<br><br>
+So with the few functions G(), A(), plAy(), fullScreen and togglePause you should
+be able to create nearly any project requiring onscreen and offscreen buffers and
+sound with user interaction.
+</td></tr></table>
+<textarea id="htmlbx" cols="80" rows="15" wrap="off"  spellcheck="false"
+ style="font-family: Lucida Console;"></textarea></body></html>

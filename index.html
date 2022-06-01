@@ -1,5 +1,5 @@
 <html><head><title>Eiffie's p5 Playground</title></head>
-<body style="font-family:Verdana"><h2>Eiffie's p5 Playground</h2><br>
+<body style="font-family:sans-serif"><h2>Eiffie's p5 Playground</h2>
 This is a place to play with interactive p5 code examples.
 p5 is processing for javascript which is a widely used
 graphics package that can run online or off.
@@ -62,5 +62,23 @@ be read with p5. Here we will let the user design a name tag.
 these days. Digital filters have become a buisness model. Cash in on the
 craziness by writing your own. Ok maybe bad tatoo face won't make me a billionaire.
 </li>
+<li>
+<a href="shaderOut2In.html">Accumulating Shader:</a> Using a single offscreen
+buffer to accumulate ray marching samples on a reflective and refractive fractal.
+</li>
+<li>
+<a href="plato.html">Platonic Solids:</a> Using double buffers to run a 
+simulation limited to p5's 8 bit values.
+</li>
+<li>
+<a href="pinball.html">Pinball:</a> Timeout to play a game... but first we have
+to write it.
+</li>
 </ul>
+At this point I became unhappy with p5's 8 bit color scheme and after spending hours
+looking at p5 code to see how to wedge in frame buffers I came to a TODO in the
+comments saying its on their list. So until then I have switched to creating my
+own Web Audio and Graphics utility wrapper called <a href="exploders.htm">WAG.js</a>
+<br>It's a light weight wrapper with few function calls but lots of optional settings
+to control the canvas shader, an offscreen frame buffer and sound buffers. See you there!
 </body></html>

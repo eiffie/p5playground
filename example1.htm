@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html><head><title>Example 1</title>
+<meta charset="utf-8" />
+<script id="fragShader" type="x-shader/x-fragment">
+precision mediump float;
+uniform float u[8]; //u holds required uniforms
+#define rez vec2(u[0],u[1])
+#define time u[2]
+//#define user u[3]   filled by you, not used here
+#define key u[4]
+#define mouse vec3(u[5],u[6],u[7])
+#define RADIUS 0.005
+void main(){//puts a red dot at mouse pointer when mouse down
+  vec2 uv=gl_FragCoord.xy/rez;//displays key presses in blue
+  vec4 O=vec4(0);             //and time in green
+  if(mouse.z>0.)O.r=smoothstep(2./rez.y,0.,length(mouse.xy-uv)-RADIUS);
+  if(key>0.)O.b=smoothstep(2./rez.y,0.,abs(key/128.-uv.x)-1./256.);
+  O.g=smoothstep(2./rez.y,0.,abs(time-(uv.x+floor(uv.y*100.))));
+  uv=floor(uv*100.)/100.;//funky pattern
+  gl_FragColor=O+dot(uv,uv.yx)*mod(uv.x*uv.y*1097.,.413);
+}
+</script>
+<script src="WAG.js"></script>
+<script>
+
+function setup(){ //we just send G the canvas id and fragment script id
+  G("glcanvas","fragShader"); //the script can be in a seperate file
+} //in this case G creates a canvas shader and runs until tab closed
+
+function loadme(){//displays the source for this page
+  document.getElementById('htmlbx').value=document.documentElement.innerHTML;
+}
+</script></head>
+<body onload="loadme();setup();" bgcolor="gainsboro" style="font-family:sans-serif;">
+<h2>Hello World!</h2>
+<table><tr valign="top"><td>
+<div style="touch-action: none;">
+<canvas id="glcanvas" width="512" height="320"></canvas></div>
+<button onclick='fullScreen(document.getElementById("glcanvas"));'>Full Screen</button>
+</td><td>
+<a href="WAG.js">WAG.js</a> is a light weight Web Audio and Graphics wrapper designed
+to make quick prototypes of games, simulations and artwork. It exposes a simple graphics
+function G() to start WEBGL on a canvas and run a single fragment shader on the canvas
+or a double buffered float shader first and then one to the screen. These
+examples will walk you through each scenario. You can add a callback to run code prior
+to each frame and also return pixels (up to 1 row) back from the frame buffer (fbo).
+There is also a function A() to load sound effects from callbacks and plAy() them
+interactively.<br><br>
+This example shows the bare minimum coding to set up a single shader running on a canvas.
+Its basically a one liner <b>G('canvasId','fragmentScriptId');</b> The canvas should
+have a width and height set and be wrapped in a div that removes touch-action so
+interacting with the canvas doesn't cause gestures to launch. The fragment script
+should be in a &ltscript&gt tag either as text or file specified by src='filename'.
+<br><br>
+You can see that mouse and key strokes are sent thru a uniform float array which is
+a bit clunky to reassemble in the shader but its a quick way to allow the user to add
+more uniform variables to pass to the shader. More on this in the next example.
+<br>On to the <a href="example2.htm">next example.</a>
+</td></tr></table>
+<textarea id="htmlbx" cols="80" rows="15" wrap="off"  spellcheck="false"
+ style="font-family: Lucida Console;"></textarea></body></html>

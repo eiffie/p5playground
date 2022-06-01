@@ -1,0 +1,110 @@
+<html><head><title>Platonics</title>
+<script src="p5.min.js"></script>
+<script id="fragShad" type="x-shader/x-fragment">
+precision highp float;
+uniform sampler2D tex;
+uniform float u[3];
+#define rez vec2(u[0],u[1])
+#define time u[2]
+#define MAX_VERTS 36.
+#define load(a) texture2D(tex,(vec2(.5)+a)/rez)
+bool bHi=false;
+float Tube(vec2 pa, vec2 ba){return length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0));}
+vec4 co(vec4 a){return bHi?vec4((a.w+.1)/MAX_VERTS,0.,0.,1.):vec4(a.xyz*.25+vec3(.5),1.);}
+vec4 deco(float x){return vec4((load(vec2(x,0.)).xyz-vec3(.5))*4.,floor(load(vec2(x+MAX_VERTS,0.)).x*MAX_VERTS));}
+void mainImage(out vec4 O, in vec2 U){
+   if(U.x>MAX_VERTS)bHi=true;
+   float tm=time*50.,d=20.0,t1=-20.0,t2=20.0;
+   if(U.y<1.0 && mod(tm,500.0)<1.0){O=co(vec4(sin(U.x+tm),sin(sin(U.x+3.0)*1276.54),U.x*0.02,0.0));return;}
+   vec2 uv=(2.0*U-rez)/rez.y*1.5;U=floor(U);
+   float verts=6.*floor(exp(mod(floor(tm/500.),4.0)-1.0)+.1);
+   if(verts<6.)verts=4.;
+   vec3 N,ro=vec3(uv+2.5*vec2(sin(2.0*tm),cos(2.0*tm))/rez.y,-3.0);
+   if(U.y==0.){U.x=mod(U.x,MAX_VERTS);O=deco(U.x);}else O=load(U);
+   for(float i=0.;i<MAX_VERTS;i+=1.){if(i>=verts)break;
+      vec4 v2=deco(i);
+      if(U.y==0.){
+         if(i!=U.x){
+            float r=length(O.xyz-v2.xyz)+sin(i+tm)*0.1;
+            if(r<d){d=r;O.w=i;}
+         }
+      }else {
+         vec4 v4=deco(v2.w);
+         d=min(d,Tube(uv-v2.xy,v4.xy-v2.xy));
+         float t=(dot(v2.xyz,ro)-sqrt(verts/MAX_VERTS))/v2.z;
+         if(v2.z>0.0){if(t>t1){N=v2.xyz;t1=t;}}else if(t<t2)t2=t;
+      }
+   }
+   if(U.y==0.0){
+      float sp=0.8-0.0008*mod(tm,500.0);sp=pow(sp,9.0);
+      vec4 v4=deco(O.w);
+      O.xyz+=(O.xyz-v4.xyz)/(d*d)*sp;
+      float r=length(O.xyz);
+      O.xyz-=sign(r-1.0)*O.xyz/r*sp*(1.0+0.02*verts);
+      O=co(O);
+   }else{
+      d=smoothstep(6.0/rez.y,0.0,d)*0.05;
+      O=vec4(1.0)-((vec4(1.0)-O)*0.95+d);
+      if(mod(U.x,20.0)<1.0 || mod(U.y,20.0)<1.0)O.x*=0.98;
+      if(t1<t2)O=mix(O,vec4(dot(vec3(0.707),N)*0.4+0.45),0.2*pow(fract(tm/500.0),4.0));
+   }
+}
+void main(){mainImage(gl_FragColor,gl_FragCoord.xy);}
+</script>
+<script>
+var pass1Buf,pass1Prog,pass2Buf,pass2Prog,img;
+let rx=320.,ry=240.,tym=0.;
+function setup(){
+  var cnv=createCanvas(rx,ry);
+  cnv.parent("c");
+  img=createImage(width,height);
+  pass1Buf=createGraphics(width,height,WEBGL);
+  pass1Buf.noStroke();
+  pass1Prog=pass1Buf.createShader("precision highp float;"+
+   "attribute vec3 aPosition;void main(){gl_Position=vec4(aPosition,1.);}",
+    document.getElementById("fragShad").textContent);
+  pass1Buf.shader(pass1Prog);
+  pass2Buf=createGraphics(width,height,WEBGL);
+  pass2Buf.noStroke();
+  pass2Prog=pass2Buf.createShader("precision highp float;"+
+   "attribute vec3 aPosition;void main(){gl_Position=vec4(aPosition,1.);}",
+   "precision highp float;uniform sampler2D tex;uniform float u[2];"+
+   "void main(){gl_FragColor=texture2D(tex,gl_FragCoord.xy/vec2(u[0],u[1]));}");
+  pass2Buf.shader(pass2Prog);
+  frameRate(60);
+}
+function draw(){
+  pass1Prog.setUniform("tex",pass2Buf);
+  pass1Prog.setUniform("u",[rx,ry,tym]);
+  pass1Buf.quad(-1,-1,1,-1,1,1,-1,1);
+  pass2Prog.setUniform("tex",pass1Buf);
+  pass2Prog.setUniform("u",[rx,ry]);
+  pass2Buf.quad(-1,-1,1,-1,1,1,-1,1);
+  img.copy(pass1Buf,-width/2,-height/2,width,height,0,0,width,height);
+  image(img,0,0);
+  tym+=0.02;
+}
+function loadme(){
+  document.getElementById('htmlbx').value=document.documentElement.innerHTML;
+}
+</script>
+</head>
+<body onload="loadme();" style="font-family:sans-serif;">
+<h2>Plato's Sketchbook</h2>
+<table><tr valign="top"><td><div id="c"></div></td><td>
+In this example we use the limited digits of the UInt8 graphics buffer
+supplied by p5 to run a simulation that produces the platonic solids by
+simply pushing vertices on a sphere apart from each other. Since this checks
+neighboring pixels we can not use a single buffer as read/write would be truly
+undefined. Instead we run a do-nothing buffer that replicates the data so
+we can read and write from seperate buffers.<br><br>
+The buffers are not only limited to 8 bit values (0-1) but also the alpha value is
+always set to 255 on extraction limiting you to 24 bits per pixel. I remember when
+24 bit colors were the bomb. Actually I remember when color TVs were the bomb.
+<br><br>
+Of course we could do something similar in 2d canvas mode with javascript alone.
+Here is an example that may be a bit easier to <a href="platosSolids.html">read.</a>
+</td></tr></table>
+<textarea id="htmlbx" cols="80" rows="15" wrap="off"  spellcheck="false"
+ style="font-family: Lucida Console;"></textarea>
+</body></html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html><head><title>Exploders</title>
+<meta charset="utf-8" />
+<script id="fboShader" type="x-shader/x-fragment">
+precision mediump float;
+uniform sampler2D fbo;
+uniform float u[8];
+#define rez vec2(u[0],u[1])
+#define time u[2]
+#define MASSES 512
+float dot2(vec2 v){return dot(v,v);}
+void main(){
+  vec2 U=gl_FragCoord.xy;
+  vec4 O=texture2D(fbo,U/rez);
+  bool bLogic=(U.y<1. && U.x<float(MASSES));
+  if(time<1.)O=vec4(bLogic?vec2(cos(U.x),sin(U.x+1.))*100.:vec2(0),0.,0.);
+  U-=rez*.5;
+  float d=100.;
+  for(int i=0;i<MASSES;i++){
+    vec4 v=texture2D(fbo,vec2(float(i)+.5,.5)/rez);
+    if(bLogic){
+      vec2 dlt=v.xy-O.xy;
+      float d2=dot2(dlt),m=min(1.,.96+dot2(v.zw-O.zw)*0.0001+d2*0.0001);
+      O.zw=O.zw*m+sign(dlt)/max(1.,d2);
+    }else d=min(d,dot2(U-v.xy));
+  }
+  if(bLogic){O.xy+=O.zw;O.zw/=(.998+.002*dot2(O.zw));}
+  else O.r=O.r*.9+.2*smoothstep(3.,0.,d);
+  gl_FragColor=O;
+}
+</script>
+<script id="fragShader" type="x-shader/x-fragment">
+precision mediump float;
+uniform sampler2D fbo;
+uniform float u[8];
+#define rez vec2(u[0],u[1])
+#define time u[2]
+float BG(vec2 v){v=sin(v+sin(v.yx+time*.1));return (v.x*v.y+v.x+v.y)*.05+0.1;}
+vec4 cmap(float a){a=clamp(a,0.,2.);return a*abs(vec4(sin(a),sin(a+.4),sin(a+1.7),1.));}
+void main(){
+  vec2 U=gl_FragCoord.xy;
+  gl_FragColor=U.y>1.?cmap(BG(U*0.01)+BG(U.yx*0.03)*.2+texture2D(fbo,U/rez).r):vec4(0);
+}
+</script>
+<script src="WAG.js"></script>
+<script>
+let N=[-1.,-5.,0.,0.,0.,-5.,4.,7.];
+function I(n,t,d){
+  let n2=(n+48.)%12.,e=1.+Math.sin(n)*.2-t*t*.5;
+  if((n2==1.)||(n2==4.)||(n2==6.)||(n2==8.)||(n2==11.))return 0.;//dorian
+  let f=Math.pow(2.,n/(12.-e*e*.05));f=(t*f*50.)%1.;
+  return Math.pow(f,.5+t*t*d)*e;
+}
+function song(k){
+  let time=k/24000.;
+  let b=time*7.,b3=(b/8.)%1.,b2=(b/2.)%1.,b1=b % 1.;
+  let n3=N[(Math.floor(b/128.)*2.)%8]+N[Math.floor(b/8.)%8];
+  let n2=n3+N[Math.floor(b/2.)%8];
+  let n=n2+N[Math.floor(b)%8];
+  return (I(n,b1,20.)*.65-I(n2+3.,b2*1.005,5.)*.75,
+   -I(n+5.,b1*1.007,20.)*.5+I(n2,b2,10.)*.75-I(n3,b3*1.001,20.))*.05;
+}
+function frame(){
+  if(G.u.key)togglePause();
+}
+function setup(){
+  A([{samps:877714,fill:song,echo:10285,sampleRate:24000}]);
+  plAy(0,{loop:true});
+  G("glcanvas","fragShader",{fboScript:"fboShader",onFrame:frame});
+}
+function loadme(){
+  document.getElementById('htmlbx').value=document.documentElement.innerHTML;
+}
+</script></head>
+<body onload="loadme();setup();" bgcolor="gainsboro" style="font-family:sans-serif;">
+<b>Exploders:</b> An example of WAG.js capabilities.<table><tr valign="top"><td>
+<div style="touch-action: none;">
+<canvas id="glcanvas" width="512" height="320"></canvas></div>
+<button onclick='fullScreen(document.getElementById("glcanvas"));'>Full Screen</button>
+<textarea id="htmlbx" cols="60" rows="15" wrap="off"  spellcheck="false"
+ style="font-family: Lucida Console;"></textarea>
+To learn more about using <b>WAG</b> check out these examples:<br>
+<a href="example1.htm">Example #1</a> running a canvas shader and viewing user input.<br>
+<a href="example2.htm">Example #2</a> adding game logic (pong) and sound.<br>
+<a href="example3.htm">Example #3</a> running an offscreen fbo script to control a game (brickOut).
+
+</td><td>
+<b>WAG.js (8kb)</b> is a minimal Web Audio and Graphics wrapper to handle the
+setup and delivery of WEBGL frame buffer objects and WebAudio sound buffers.
+The functions are few and the settings many:
+<ul><li>
+<b>G(canvasId,fragmentScriptId,[settings,uniforms])</b><br>
+G() sets up a canvas shader and optionally a frame buffer shader that runs double buffered
+prior to the shader(s). It also sets up an animation callback and runs animation
+until paused. A detail of the parameters.<br>
+ <ul><li>
+<b>canvasId:</b> The id of a canvas element with width and height defined in style in
+a parent div with a touch-action:none style.
+ </li><li>
+<b>fragmentScriptId:</b> the id of a script element containing a fragment shader to
+color the canvas based on gl_FragCoord.xy and uniforms. The uniforms are:<br>
+  <ul><li>
+<b>uniform float u[8];</b> required. Holds the following data fields.
+   <ul><li>#define rez vec2(u[0],u[1]) =width and height of canvas</li>
+   <li>#define time u[2] =time in seconds that shader has run</li>
+   <li>#define user u[3] =defined by the user</li>
+   <li>#define key u[4] =last key down or 0 if none</li>
+   <li>#define mouse vec3(u[5],u[6],u[7]) =mouse x,y and down (all fields 0-1)</li>
+   </ul>
+  </li><li>
+<b>uniform float U[#];</b> [optional] user defined floats contained in either an object or array
+  </li><li>
+<b>uniform sampler2D fbo;</b> [optional] the frame buffer shader as a texture input.
+  </li></ul>
+ </li><li>
+<b>settings:</b> [optional] an object {field:value,...} holding any of the following settings:<br>
+  <ul><li>
+<b>fboScript:</b> id of a fragment shader to fill the frame buffer accessed thru uniform sampler fbo;
+  </li><li>
+<b>onFrame:</b> a function called back prior to each frame of animation. It can access uniform
+floats through the objects G.u and optionally U which can be {} or [] of floats.
+  </li><li>
+<b>returnPixels:</b> the number of pixels from the frame buffer to return to the CPU in
+a float array G.r. G.r will have a length 4*# with RGBA 0-1 format.
+  </li><li>
+<b>wrap, magFilter, minFilter:</b> texture parameters applied to the fbo. Defaults are CLAMP, NEAREST. 
+  </li></ul>
+ </li><li>
+<b>uniforms:</b> an object of float key.value pairs or a float array, whichever works
+best for your aplication. Typical to make this variable global with a capital U as that
+is the name used in the fboScript.
+ </li></ul>
+</li><li>
+<b>fullScreen(canvasId):</b> causes the canvas to go fullscreen.
+</li><li>
+<b>togglePause():</b> stops drawing and sound until toggled again.
+</li><li>
+<b>mouseDown,Up,Move, KeyDown,Up:</b> overridable functions that set uniform variables
+to user actions.
+</li><li>
+<b>A(soundSettingsObjectArray):</b> The A() setup function creates and fills sound buffers
+based on settings supplied in the soundSettingsObjectArray which is an array of objects
+[{},{},...] containing the following fields.
+ <ul><li>
+<b>samps:</b> required, the number of samples requested for the buffer.
+ </li><li>
+<b>fill:</b> required, a callback to fill the buffer with amplitudes -1. to 1. based on
+buffer index. Example fill:amp then elsewhere amp is defined as:<br>
+function amp(k){return sin(PI*2.*frequency*k/SamplesPerSec);}
+ </li><li>
+<b>sampleRate:</b> [optional] the sampleRate, samples per second, of the recording.
+Even if samples are created setting the sampleRate allows WebAudio to ensure the pitch
+is maintained even if the browser is running audio at a different rate. Use this to
+reduce the size of sound effect buffers and fill time by using a slower sampleRate.
+ </li><li>
+<b>echo:</b> [optional] If set to # the buffer will be filled with amp(k)+amp(k-#)/2.
+ </li></ul>
+<li>
+<b>plAy(indexOfBuffer,settings):</b> plays the buffer with the given index in the
+soundSettingsObjectArray passed to A(). Settings are optional:<br>
+ <ul><li>
+<b>volume:</b> the gain on the buffer 0-inf, 1 is default.
+ </li><li>
+<b>rate:</b> the rate of playback, 0-inf, 1 is default.
+ </li><li>
+<b>loop:</b> infinite repeat. Toggling pause will pause and then resume.
+ </li><li>
+<b>detune:</b> detune in cents, fine pitch adjustment.
+ </li><li>
+<b>startTime:</b> a relative startTime from Now().
+ </li><li>
+<b>randomize:</b> randomize the pitch between 1 and 1.1.
+ </li></ul>
+</li></ul></td></tr></table></body></html>

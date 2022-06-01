@@ -1,0 +1,147 @@
+<html><head><title>Shader Out 2 In</title>
+<script src="p5.min.js"></script>
+<script id="fragShad" type="x-shader/x-fragment">
+precision highp float;
+uniform sampler2D tex;
+uniform float u[5];
+#define rez vec2(u[0],u[1])
+#define iTime u[2]
+#define TAU 6.283
+#define maxDepth 50.0
+const float fov = 2.5,blurAmount = 0.007;
+const int RaySteps=64, maxBounces=4;
+const float FudgeFactor=1.0;
+const vec3 ior=vec3(1.0,1.52,1.0/1.52);//water=1.33,glass=1.52,diamond=2.42
+
+vec4 orbitTrap;  
+float DE(vec3 z0){
+  vec4 z = vec4(z0,1.1);
+  for (int n = 0; n < 5; n++) {
+    z.xyz=clamp(z.xyz, -1.0, 1.0) *2.0-z.xyz;
+    z*=-2./clamp(dot(z.xyz,z.xyz),1.,4.);
+    z.y+=2.05; 
+  }
+  orbitTrap=z;z=abs(z);
+  return (max(z.x,max(z.y,z.z))-2.667)/z.w;
+}
+
+vec3 getBackground( in vec3 rd ){
+ vec3 sunDir=normalize(vec3(0.3,0.9,-0.5)), sunColor=vec3(1.0,0.9,0.6);
+ return sunColor*.4+rd*0.25+sunColor*(max(0.0,dot(rd,sunDir))+30.*pow(abs(dot(rd,sunDir)),40.0));
+}
+
+//random seed and generator
+vec2 randv2;
+vec2 rand2(){// implementation derived from one found at: lumina.sourceforge.net/Tutorials/Noise.html
+ randv2+=vec2(1.0,1.0);
+ return vec2(fract(sin(dot(randv2.xy ,vec2(12.9898,78.233))) * 4375.5453),
+  fract(cos(dot(randv2.xy ,vec2(4.898,7.23))) * 2342.631));
+}
+
+vec3 scene(vec3 ro, vec3 rd) 
+{// find color and depth of scene
+ vec3 fcol=vec3(1.0);//color frequency mask
+ vec2 rnd=rand2();//a couple random numbers
+ float HitDistance=1.0/rez.x;
+ float d,t=rnd.x*HitDistance*10.0,side=sign(DE(ro+t*rd));//dist to obj, total ray len, len to first obj, -inside or +outside of obj
+ int iHitCount=0;
+ for(int i=0; i<RaySteps; i++ ){// march loop
+  t+=d=DE(ro+t*rd)*side*FudgeFactor;//march
+  if(t>maxDepth)break;
+  if(abs(d)<HitDistance*t){//hit
+   t+=d=DE(ro+t*rd)*side;//move close to the hit point without fudging
+   ro+=rd*t;// advance ray position to hit point
+   vec2 ve=vec2(HitDistance*0.1,0.0);
+   vec3 nor = side*normalize(vec3(-DE(ro-ve.xyy)+DE(ro+ve.xyy),
+    -DE(ro-ve.yxy)+DE(ro+ve.yxy),
+    -DE(ro-ve.yyx)+DE(ro+ve.yyx)));// get the surface normal
+   if(nor!=nor)nor=-rd;//is this !isNum(nor) which only happens when nor~/=-rd!!
+   rnd=rand2();//a couple more random numbers
+   vec3 refl=reflect(rd,nor),newRay=refl;//setting up for a new ray direction and defaulting to a reflection
+   vec3 refr=refract(rd,nor,(side>=0.0)?ior.z:ior.y);//calc the probabilty of reflecting instead
+   vec2 ca=vec2(dot(nor,rd),dot(nor,refr)),n=(side>=0.0)?ior.xy:ior.yx,nn=vec2(n.x,-n.y);
+   if(rnd.y+rnd.x>pow(dot(nn,ca)/dot(n,ca),2.0)+pow(dot(nn,ca.yx)/dot(n,ca.yx),2.0)){newRay=refr;nor=-nor;}
+   rd=newRay;//powDir(nor,newRay,m.difExp);//redirect the ray
+   vec3 col=abs(sin(3.*orbitTrap.rgb/orbitTrap.w))*.5+.5;
+   fcol*=col;
+   t=max(d*side*5.0,HitDistance);//hopefully pushs thru the surface
+   if(iHitCount++>maxBounces || dot(fcol,fcol)<0.01)break;
+   side=sign(DE(ro+t*rd));//keep track of which side you are on
+  }
+ }
+ return clamp(fcol*getBackground(rd),0.0,1.0);//light the scene
+} 
+mat3 lookat(vec3 fw){
+  fw=normalize(fw);vec3 rt=normalize(cross(fw,vec3(0.0,1.0,0.0)));return mat3(rt,cross(rt,fw),fw); 
+}
+void Setup(float t, out vec3 eye, out vec3 tgt){t=floor(t);
+  vec2 r=fract(vec2(sin(t),sin(t+2.0))*431.456);
+  eye=vec3(r.x,0.,r.y)*(1.+sin(t*.71));eye.y=2.;
+  tgt=eye+normalize(vec3(r.x,0,r.y))*.25;
+}
+void mainImage(out vec4 O, in vec2 U) {
+ randv2=fract(cos(U.xy+U.yx*vec2(113.0,107.0)+vec2(iTime))*4231.8413);
+ vec3 eye,tgt;
+ if(iTime==0.)O=vec4(0);else O=texture2D(tex,vec2(U.x,rez.y-U.y)/rez.xy)*0.96875;
+ float t=iTime/2.0;if(fract(t)<0.015)O*=.5;
+ Setup(t,eye,tgt);tgt-=eye;
+ float focusDistance=length(tgt);
+ mat3 looky=lookat(tgt);
+ vec2 pxl=(-rez.xy+2.0*(U.xy+rand2()))/rez.y;
+ vec3 er = normalize( vec3( pxl.xy, fov ) );
+ vec3 go = blurAmount*focusDistance*vec3( -1.0 + 2.0*rand2(), 0.0 );
+ vec3 gd = normalize( er*focusDistance - go );gd.z=0.0;
+ O+=vec4(scene(eye+looky*go,looky*normalize(er+gd)),1.0)*0.03125;
+}
+void main(){mainImage(gl_FragColor,gl_FragCoord.xy);}
+</script>
+<script>
+let pass1Prog;
+let pass1Buf;
+let rx=320.,ry=240.,tym=0.;
+function setup(){
+  var cnv=createCanvas(rx,ry);
+  cnv.parent("c");
+  pass1Buf=createGraphics(width,height,WEBGL);
+  pass1Prog=pass1Buf.createShader("precision highp float;"+
+   "attribute vec3 aPosition;void main(){gl_Position=vec4(aPosition,1.);}",
+    document.getElementById("fragShad").textContent);
+  pass1Buf.noStroke();
+  pass1Buf.shader(pass1Prog);
+}
+function draw(){
+  pass1Prog.setUniform("tex",pass1Buf);
+  pass1Prog.setUniform("u",[rx,ry,tym]);
+  pass1Buf.quad(-1,-1,1,-1,1,1,-1,1);
+  if((frameCount%100)==99)image(pass1Buf,0,0);
+  if(frameCount<99)text("Loading...",40,160);
+  tym+=0.02;
+}
+function loadme(){
+  document.getElementById('htmlbx').value=document.documentElement.innerHTML;
+}
+</script>
+</head>
+<body onload="loadme()"; style="font-family:sans-serif"><h2>Undefined World</h2>
+<table><tr valign="top"><td><div id="c"></div>
+</td>
+<td>The OpenGL spec says reading and writing to the same buffer inside a shader
+is undefined but that won't stop me from exploring Undefined World. Here the output
+buffer is directed back in as a texture buffer for slow accumulation. The canvas is only
+updated as scenes are finished which improves the speed since no data is transfering
+from the GPU to the CPU aside from a few uniform variables.
+The shader is following perfect reflections and refractions on a fractal surface
+made of glass.<br><br>
+In setup() we use createGraphics(W,H,WEBGL) to create an offscreen buffer.
+Then we create our shader program on that buffer. In draw() we set the uniforms on the
+program and draw a quad on the buffer. Only once every 100 calls do we extract
+an image from the buffer for display.<br><br>
+Things to note about the way p5 handles buffers and textures. For 1 thing they are
+upsidedown. p5's Y axis goes down the screen like line numbers where OpenGL's goes
+up like a graph. If you don't handle this in your shader code the "out-to-in" buffer flips
+every pass. 2nd the buffers are 8 bit which is fine for most visual effects but
+doesn't lend itself to physics engines or fine resolution simulations.
+</td></tr></table>
+<textarea id="htmlbx" cols="80" rows="15" wrap="off"  spellcheck="false"
+ style="font-family: Lucida Console;"></textarea>
+</body></html>

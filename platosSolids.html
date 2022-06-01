@@ -1,0 +1,40 @@
+<head><title>Plato's Solids</title>
+<script src="p5.min.js"></script>
+<script>
+let verts=[],VL;
+function setup(){
+  createCanvas(320,320);
+  background(140);
+  stroke(80);
+  frameRate(30);
+}
+function draw(){
+  let mx=width*height*4*pixelDensity()*pixelDensity();
+  loadPixels();
+  for(let i=0;i<mx;i++)if(pixels[i]<((i%128)==0?140:245))pixels[i]+=10;
+  updatePixels();
+  VL=6*floor(exp((frameCount/1000)%2)-.5);
+  if(VL<6)VL=4;
+  while(verts.length>VL)verts.pop();
+  while(verts.length<VL)verts.push(createVector(.5-random(),.5-random(),.5-random()));
+  for(let i=0;i<VL;i++){
+    let d=100.,k=0;
+    for(let j=0;j<VL;j++)if(i!=j){
+      let r=p5.Vector.sub(verts[i],verts[j]).mag()+fract(i*frameCount*0.001)*0.01;
+      if(r<d){d=r;k=j;}
+    }
+    let W2=width/2;
+    line(W2+W2*verts[i].x,W2+W2*verts[i].y,W2+W2*verts[k].x,W2+W2*verts[k].y);
+    verts[i].add(p5.Vector.sub(verts[i],verts[k]).div(max(d*d*50.,0.01)));
+    verts[i].div(max(verts[i].mag(),0.01));
+  }
+}
+function loadme(){
+  document.getElementById('htmlbx').value=document.documentElement.innerHTML;
+}
+</script>
+</head>
+<html><body onload="loadme();">
+<textarea id="htmlbx" cols="80" rows="15" wrap="off"  spellcheck="false"
+ style="font-family: Lucida Console;"></textarea>
+ </body></html>
