@@ -60,16 +60,16 @@ void main(){
 <script src="WAG.js"></script>
 <script>
 let U={plx:-1.,ply:0.,prx:1.,pry:0.,bx:0.,by:0.,scoreL:0.,scoreR:0.};
-let dtx=0.01,dty=0.004;
-function game(){
+let dtx=-0.01,dty=0.004;
+function game(){if(G.paused)return;
   U.bx+=dtx;U.by+=dty;
   if(Math.abs(U.bx)>1.){dtx=-dtx;
     if(dtx<0.){
-      if(Math.abs(U.pry-U.by+.05)>0.1){U.scoreL+=1;dty=0.;plAy(1,null);}
-      else {dty=(U.by-U.pry-.05)*.25;plAy(0,null);}
+      if(Math.abs(U.pry-U.by+.05)>0.1){U.scoreL+=1;dty=0.;plAy(1,{randomize:true});}
+      else {dty=(U.by-U.pry-.05)*.25;plAy(0,{randomize:true});}
     }else{
-      if(Math.abs(U.ply-U.by+.05)>0.1){U.scoreR+=1;dty=0.;plAy(1,null);}
-      else {dty=(U.by-U.ply-.05)*.25;plAy(0,null);}
+      if(Math.abs(U.ply-U.by+.05)>0.1){U.scoreR+=1;dty=0.;plAy(1,{randomize:true});}
+      else {dty=(U.by-U.ply-.05)*.25;plAy(0,{randomize:true});}
     }
   }
   if(Math.abs(U.by)>1.)dty=-dty;
@@ -81,9 +81,10 @@ function game(){
 function ping(k){t=k/24000.;return Math.sin(t*t*2000.)*(1.-t);}
 function pong(k){t=k/24000.;return Math.sin(t*1000.)*(1.-t);}
 
-function setup(){
+function setup(){//if the game doesn't check delta time throttle the fps
+  G("glcanvas","fragShader",{onFrame:game,fps:60},U);
+  togglePause();//sound won't start until user interaction so make a play button
   A([{samps:24000,fill:ping},{samps:24000,fill:pong}]);
-  G("glcanvas","fragShader",{onFrame:game},U);
 }
 
 function loadme(){
@@ -91,9 +92,10 @@ function loadme(){
 }
 </script></head>
 <body onload="loadme();setup();" bgcolor="gainsboro" style="font-family:sans-serif;">
-<b>Ping Pong:</b> Use the arrow keys to play.
+<b>Pong:</b> Use the arrow keys to play.
 <table><tr valign="top"><td><div style="touch-action: none;">
 <canvas id="glcanvas" width="512" height="320"></canvas></div>
+<button onclick='togglePause();this.textContent=G.paused?"Resume":"Pause";'>Play</button>
 <button onclick='fullScreen(document.getElementById("glcanvas"));'>Full Screen</button>
 </td><td>
 Now things have gotten a bit more complicated. We've added some sounds and game logic.

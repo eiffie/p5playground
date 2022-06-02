@@ -10,7 +10,7 @@ uniform float u[8];
 #define game u[3]
 #define key u[4]
 #define mouse vec3(u[5],u[6],u[7])
-#define BX 8.
+#define BX 9.
 #define BY 16.
 #define SPD .3
 #define LEFT_ARROW 37.
@@ -34,7 +34,7 @@ void main(){
    L2.zw=abs(L2.zw);//remove flags
    if(L2.w<1.){gl_FragColor=O;return;}//end game
    if(U.y<1. && U.x<2.){//logic
-     float dt=(time-L2.y)*(1.+time*0.005);L2.y=time;
+     float dt=clamp((time-L2.y)*(1.+time*0.005),0.001,0.2);L2.y=time;
      L1.xy+=L1.zw*dt*SPD;
      if(L1.x<0.){L1.x=0.;L1.z=abs(L1.z);}
      if(L1.x>1.){L1.x=1.;L1.z=-abs(L1.z);}
@@ -98,7 +98,8 @@ void main(){//gl_FragColor=vec4(0,1,0,1);return;
 <script src="WAG.js"></script>
 <script>
 function game(){//play sounds
-  if(G.r){
+  if(G.r && !G.paused){
+    //console.log(G.u.time + " " + G.st + " " + G.pt + " " + G.clock);
     if(G.r[6]<0.)plAy(0,null);
     if(G.r[7]<0.)plAy(1,null);
   }
@@ -108,6 +109,7 @@ function pong(k){t=k/24000.;return Math.sin(t*1000.)*(1.-t);}
 function setup(){
   A([{samps:24000,fill:ping},{samps:24000,fill:pong}]);
   G("glcanvas","fragShader",{fboScript:"fboShader",onFrame:game,returnPixels:2});
+  togglePause();
 }
 function loadme(){
   document.getElementById('htmlbx').value=document.documentElement.innerHTML;
@@ -117,6 +119,7 @@ function loadme(){
 <b>BrickOut:</b> finally an fbo example.<table><tr valign="top"><td> 
 <div style="touch-action: none;">
 <canvas id="glcanvas" width="512" height="320"></canvas></div>
+<button onclick='togglePause();this.textContent=G.paused?"Resume":"Pause";'>Play</button>
 <button onclick='fullScreen(document.getElementById("glcanvas"));'>Full Screen</button>
 Press SPACE to restart.</td><td>
 So far everything could have been done just as easily in p5 but what if you want

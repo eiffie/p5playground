@@ -24,7 +24,7 @@ void main(){//puts a red dot at mouse pointer when mouse down
 <script>
 
 function setup(){ //we just send G the canvas id and fragment script id
-  G("glcanvas","fragShader"); //the script can be in a seperate file
+  G("glcanvas","fragShader",{fps:60}); //the script can be in a seperate file
 } //in this case G creates a canvas shader and runs until tab closed
 
 function loadme(){//displays the source for this page

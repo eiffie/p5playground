@@ -60,13 +60,11 @@ function song(k){
   return (I(n,b1,20.)*.65-I(n2+3.,b2*1.005,5.)*.75,
    -I(n+5.,b1*1.007,20.)*.5+I(n2,b2,10.)*.75-I(n3,b3*1.001,20.))*.05;
 }
-function frame(){
-  if(G.u.key)togglePause();
-}
 function setup(){
   A([{samps:877714,fill:song,echo:10285,sampleRate:24000}]);
   plAy(0,{loop:true});
-  G("glcanvas","fragShader",{fboScript:"fboShader",onFrame:frame});
+  G("glcanvas","fragShader",{fboScript:"fboShader"});
+  togglePause();
 }
 function loadme(){
   document.getElementById('htmlbx').value=document.documentElement.innerHTML;
@@ -76,6 +74,8 @@ function loadme(){
 <b>Exploders:</b> An example of WAG.js capabilities.<table><tr valign="top"><td>
 <div style="touch-action: none;">
 <canvas id="glcanvas" width="512" height="320"></canvas></div>
+<button onclick='togglePause();this.textContent=G.paused?"Resume":"Pause";'>Play</button>
+<button onclick='G.st=Date.now();G.pt=G.u.time=0.;'>Rewind</button>
 <button onclick='fullScreen(document.getElementById("glcanvas"));'>Full Screen</button>
 <textarea id="htmlbx" cols="60" rows="15" wrap="off"  spellcheck="false"
  style="font-family: Lucida Console;"></textarea>
@@ -122,6 +122,8 @@ floats through the objects G.u and optionally U which can be {} or [] of floats.
   </li><li>
 <b>returnPixels:</b> the number of pixels from the frame buffer to return to the CPU in
 a float array G.r. G.r will have a length 4*# with RGBA 0-1 format.
+  </li><li>
+<b>fps:</b> a throttling maximum number of frames per second
   </li><li>
 <b>wrap, magFilter, minFilter:</b> texture parameters applied to the fbo. Defaults are CLAMP, NEAREST. 
   </li></ul>

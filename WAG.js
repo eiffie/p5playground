@@ -12,25 +12,27 @@ function A(a){//a=[{samps:24000,fill:ampk},{...}] 1 object for each sound effect
   var cd=A.buf[i].getChannelData(0);
   for(let k=0;k<a[i].samps;k++){cd[k]=a[i].fill(k);if(a[i].echo)if(k>a[i].echo)cd[k]+=cd[k-a[i].echo]*.5;}
  }
-}
-function plAy(n,O){if(!A.AC)return;//O defaults {randomize:false,rate:1,volume:1,detune:0,loop:false,startTime:0}
+}//O defaults {randomize:false,rate:1,volume:1,detune:0,loop:false,startTime:0}
+function plAy(n,O){if(!A.AC){console.log("A.AC does not exist");return;}
   let src=A.AC.createBufferSource();//O is optional and can be null or {}, don't use false just leave out
   src.buffer=A.buf[n];
-  if(O){
-    if(O.randomize)src.playbackRate=1.+((Date.now()*(1000+n))%1)*.1;
-    if(O.rate)src.playbackRate=O.rate;
+  if(O){//playbackRate still not working in edge
+    if(O.randomize)src.playbackRate.setValueAtTime(1.+Math.random()*.1,0);
+    if(O.rate)src.playbackRate.setValueAtTime(O.rate,0);
     if(O.volume){
       var gn=A.AC.createGain();
       src.connect(gn);
       gn.connect(A.AC.destination);
       gn.gain.value=O.volume;
     }else src.connect(A.AC.destination);
-    if(O.detune)src.detune=O.detune;
+    if(O.detune)src.detune.setValueAtTime(O.detune,0);
     if(O.loop)src.loop=true;
     if(O.startTime)src.start(O.startTime);else src.start(0);
   }else {src.connect(A.AC.destination);src.start(0);} 
 }
 function G(C,F,O,U){//O={fboScript:'',onFrame:null,wrap:CLAMP,magFilter:NEAREST,minFilter:NEAREST}
+ G.u={width:0.,height:0.,time:0.,user:0.,key:0.,mousex:0.,mousey:0.,mousedown:0.};
+ G.LEFT_ARROW=37;G.RIGHT_ARROW=39;G.UP_ARROW=38;G.DOWN_ARROW=40;G.LINEAR=9729;G.REPEAT=10497;
  function getShader(src, typ){//{returnPixels:#} fbo pixels 0,0 thru #,0 are placed in G.r[0..4*#] float array
   var shader=G.gl.createShader(typ);//O can be null or {}, if onFrame:frame frame() is called after draw
   G.gl.shaderSource(shader,src);
@@ -56,7 +58,6 @@ function G(C,F,O,U){//O={fboScript:'',onFrame:null,wrap:CLAMP,magFilter:NEAREST,
  }
  if(!O)O={};
  if(U)G.U=U;
- G.u={width:0.,height:0.,time:0.,user:0.,key:0.,mousex:0.,mousey:0.,mousedown:0.};
  if(O.onFrame)G.onFrame=O.onFrame;
  G.buf=G.st=G.pt=0;
  G.c=document.getElementById(C);
@@ -108,20 +109,20 @@ function G(C,F,O,U){//O={fboScript:'',onFrame:null,wrap:CLAMP,magFilter:NEAREST,
    return window.webkitRequestAnimationFrame ||
           window.mozRequestAnimationFrame ||
           window.msRequestAnimationFrame ||
-          function(callback,element){window.setTimeout(callback,1000/60);};
-  })();
+          function(callback,element){window.setTimeout(callback,G.fpsSecs);};})();
  }
  G.c.addEventListener('mousedown',mouseDown,false);
  G.c.addEventListener('mouseup',mouseUp,false);
  G.c.addEventListener('mousemove',mouseMove,false);
  document.addEventListener('keydown',keyDown,false);
  document.addEventListener('keyup',keyUp,false);
- G.LEFT_ARROW=37;G.RIGHT_ARROW=39;G.UP_ARROW=38;G.DOWN_ARROW=40;
+ G.now=window.performance.now?function(){return window.performance.now();}:function(){return Date.now;};
+ if(O.fps){G.fpsMs=1000/O.fps;G.clock=G.now()-1;}
  G.paused=true;togglePause();
  _animate();
 }
-function togglePause(){//frame(){if(G.u[G.KEY]==80.)togglePause();if(G.paused)return;
-  if(G.paused){G.st=Date.now()-G.pt;_pauseAnim();G.paused=false;if(A.AC)A.AC.resume();}
+function togglePause(){//if called do this-->onFrame(){if(G.paused)return;
+  if(G.paused){G.st=G.now()-G.pt;_pauseAnim();G.paused=false;if(A.AC)A.AC.resume();}
   else {_pauseAnim();if(A.AC)A.AC.suspend();}
 }
 function fullScreen(el){//browser handles reverse on Esc
@@ -130,14 +131,15 @@ function fullScreen(el){//browser handles reverse on Esc
  else if( el.mozRequestFullScreen ) el.mozRequestFullScreen();
  else if( el.webkitRequestFullscreen ) el.webkitRequestFullscreen( Element.ALLOW_KEYBOARD_INPUT );
 }//DO NOT CALL UNDERSCORED FUNCTIONS
-function _pauseAnim(){G.paused=true;G.pt=Date.now()-G.st;}
-function _animate(){requestAnimationFrame(_animate);if(!G.paused)_draw();else if(G.onFrame)G.onFrame();}
+function _pauseAnim(){G.paused=true;G.pt=G.now()-G.st;}
+function _animate(){requestAnimationFrame(_animate);
+  if(G.fpsMs){var n=G.now();if(n<G.clock)return;G.clock+=G.fpsMs-(n%G.fpsMs);}
+  if(!G.paused)_draw();else if(G.onFrame)G.onFrame();}
 function _draw(){
   function drawquad(){
    G.gl.clear(G.gl.COLOR_BUFFER_BIT);
-   G.gl.drawArrays(G.gl.TRIANGLE_STRIP,0,G.VP.numItems);
-  }
-  G.u.time=(Date.now()-G.st)/1000.0;
+   G.gl.drawArrays(G.gl.TRIANGLE_STRIP,0,G.VP.numItems);}
+  G.u.time=(G.now()-G.st)/1000.0;
   if(G.onFrame)G.onFrame();
   var u=Object.values(G.u);
   var u2=null;if(G.U){if(Array.isArray(G.U))u2=G.U;else u2=Object.values(G.U);}
@@ -152,21 +154,19 @@ function _draw(){
    G.gl.uniform1i(G.ufboA,0);
    drawquad();
    if(G.returnPixels){G.gl.flush();G.gl.readPixels(0,0,G.returnPixels,1,G.gl.RGBA,G.gl.FLOAT,G.r);}
-   G.gl.bindFramebuffer(G.gl.FRAMEBUFFER,null);
-  }
+   G.gl.bindFramebuffer(G.gl.FRAMEBUFFER,null);}
   G.gl.useProgram(G.P);
   G.gl.uniform1fv(G.uni,u);
   if(u2)G.gl.uniform1fv(G.Uni,u2);
   if(G.ufbo){
     G.gl.uniform1i(G.ufbo,0);
     G.gl.activeTexture(G.gl.TEXTURE0);
-    if(G.PA)G.gl.bindTexture(G.gl.TEXTURE_2D,G.tx[G.buf]);
-  }
+    if(G.PA)G.gl.bindTexture(G.gl.TEXTURE_2D,G.tx[G.buf]);}
   drawquad();
 }//replace these event callbacks if needed
 function mouseDown(e){G.u.mousedown=1.0;}
 function mouseUp(e){G.u.mousedown=0.0;}
 function mouseMove(e){var rect=G.c.getBoundingClientRect();
 G.u.mousex=(e.clientX-rect.left)/rect.width;G.u.mousey=1.-(e.clientY-rect.top)/rect.height;}
-function keyDown(e){G.u.key=e.keyCode;}
+function keyDown(e){G.u.key=e.keyCode;if(e.keyCode>=32 && e.keyCode<=40)e.preventDefault();}
 function keyUp(e){if(G.u.key==e.keyCode)G.u.key=0.0;}
