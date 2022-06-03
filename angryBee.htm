@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html><head><title>Angry Bee</title>
+<meta charset="utf-8" />
+<script id="fragShader" type="x-shader/x-fragment">
+precision mediump float;
+uniform float u[8]; //holds required uniforms
+uniform float U[6]; //holds user defined vars
+#define rez vec2(u[0],u[1])
+#define time u[2]
+#define user u[3]
+#define key u[4]
+#define mouse vec3(u[5],u[6],u[7])
+#define B1 vec3(U[0],U[1],U[2])
+#define B2 vec3(U[3],U[4],U[5])
+float tube(vec3 pa, vec3 ba){
+  float T=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
+  return length(pa-ba*T)-.05-.005*T;
+}
+vec3 mcol=vec3(0);
+float w=1.;
+float DE(vec3 p){
+  float d=tube(p-B2,B1-B2);
+  p-=(B1+B2)/2.;
+  if(mcol.x>0.){
+    mcol+=vec3(1.,.5,0.)*abs(cos(p.z*300.)*.125+p.z*16.);
+  }
+  p.x=abs(p.x);
+  p.y+=sin(time*100.)*p.x*.5;
+  p.x-=.125;
+  w=min(w,length(p*vec3(8.,100.,8.)));
+  d=min(d,w/8.+.001);
+  return d; 
+}
+float face(vec2 p){
+  p.x=abs(p.x);
+  float d=max(abs(p.y+.02)*2.,p.x-.02);
+  d=min(d,length(p-vec2(.02)));
+  return clamp(d*50.,0.,1.);
+}
+void main(){
+  float rnd=fract(sin(dot(gl_FragCoord.xy,vec2(113.421,71.3149)))*123.23);
+  vec3 rd=normalize(vec3(2.*gl_FragCoord.xy-rez,rez.y));
+  vec4 O=vec4(.4,.6,.9,1.)+vec4(rd*.1,0.);
+  float t=rnd*DE(vec3(0)),d,px=3./rez.y;
+  for(int i=0;i<16;i++){
+    t+=d=DE(rd*t);
+    if(t>2. || d<px*t);
+  }
+  if(d<px*t){
+    mcol.x=.001;
+    d=max(d,0.0001);
+    vec3 p=rd*(t-d),up=vec3(0,1,0),rt=vec3(1,0,0);
+    vec3 N=normalize(-rd*d+up*(DE(p+up*d)-d)+rt*(DE(p+rt*d)-d));
+    mcol*=dot(N,-rd);
+    O.rgb=mix(mcol*face((p-B1).xy),O.rgb,clamp(d/(px*t),0.,1.));
+  }
+  gl_FragColor=O*(.75+.25*w);
+}
+</script>
+<script src="WAG.js"></script>
+<script>
+var U=new Array(6);
+var rp=null;//an object returned from plAy() that contains source and pan
+function frame(){if(G.paused || !rp)return;//we use it to see if sound is activated
+  let a=G.u.time*2.;
+  U[0]=Math.cos(a);U[1]=Math.sin(a*.9);U[2]=Math.sin(a*.7);
+  a-=.03;
+  U[3]=Math.cos(a);U[4]=Math.sin(a*.9);U[5]=Math.sin(a*.7);
+  rp.pan.positionX.value=U[0]*20.; //and to control the 3D pan settings
+  rp.pan.positionY.value=U[1]*20.;   
+  rp.pan.positionZ.value=U[2]*20.;
+  let d1=U[0]*U[0]+U[1]*U[1]+U[2]*U[2];
+  let d2=U[3]*U[3]+U[4]*U[4]+U[5]*U[5];
+  let d=1.+d1-d2;
+  rp.source.playbackRate.value=d;
+}
+function amp(k){return ((220.*k/48000.)%1.)-.5;}
+function startSound(){
+  rp=plAy(0,{loop:true,pan:"3D"});
+}
+function setup(){
+  G("glcanvas","fragShader",{onFrame:frame,fps:60},U);
+  togglePause(); //should always toggle pause when playing audio to require gesture
+  A([{samps:48000,fill:amp}]);
+}
+</script></head>
+<body onload="setup();htmlbx.value=document.documentElement.innerHTML;" bgcolor="gainsboro" style="font-family:sans-serif;">
+<b>Angry Bee</b>
+<table><tr valign="top"><td>
+<div style="touch-action: none;">
+<canvas id="glcanvas" width="512" height="320"></canvas></div>
+<button onclick='togglePause();if(!rp)startSound();'>On/Off</button>
+<button onclick='fullScreen(document.getElementById("glcanvas"));'>Full Screen</button>
+</td><td>
+There's a bee by your head. He sounds angry. I think he's mad they took
+doppler effect out of the WebAudio spec.</td></tr></table>
+<textarea id="htmlbx" cols="80" rows="15" wrap="off"  spellcheck="false"
+ style="font-family: Lucida Console;"></textarea>
+</body></html>

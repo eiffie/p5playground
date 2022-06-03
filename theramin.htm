@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html><head><title>Theramin</title>
+<meta charset="utf-8" />
+<script id="fragShader" type="x-shader/x-fragment">
+precision mediump float;
+uniform float u[8]; //u holds required uniforms
+#define rez vec2(u[0],u[1])
+#define time u[2]
+#define user u[3]
+#define key u[4]
+#define mouse vec3(u[5],u[6],u[7])
+void main(){
+  vec2 uv=gl_FragCoord.xy/rez;uv.y=1.-uv.y;//user is defined as sum(time*freq)
+  float r=length(vec2(uv.x,uv.y*mouse.y)),a=r*100.*mouse.y-user;
+  vec4 O=(vec4(.9,.6,.1,1.)+vec4(sin(a),sin(a+.4),sin(a+1.),0.)*.5)*(1.-mouse.x-r);
+  gl_FragColor=O;
+}
+</script>
+<script src="WAG.js"></script>
+<script>
+var rp=null;//an object returned from plAy(theramin) that contains source and gain
+function frame(){if(G.paused || !rp)return;//we use it to see if sound is activated
+  rp.source.playbackRate.value=G.u.mousey; //and to control the playback rate
+  rp.volume.gain.value=1.-G.u.mousex;      //and volume on the fly
+  G.u.user+=1.*G.u.mousey;
+}
+function ntof(n){return Math.pow(2.,n/12.);}
+function song(k){//(i*i)%j music
+  var i=Math.floor(k/7000);
+  var n=((i%32)<24?1:2);
+  var freq=55.*ntof(((i*i*n)%64));
+  freq*=k/48000.;
+  return (freq%1)-.5-(((freq*8.+Math.sin(freq*.03)*.05)%1)-.5)*.5;
+}
+function amp(k){return Math.sin(1760.*Math.PI*k/48000.);}//bee:((440.*k/48000.)%1.)-.5;}
+function startSound(){
+  rp=plAy(0,{loop:true,volume:.9});//theramin
+  plAy(1,{loop:true});             //song
+}
+function setup(){
+  G("glcanvas","fragShader",{onFrame:frame,fps:60});
+  togglePause(); //should always toggle pause when playing audio to require gesture
+  A([{samps:48000,fill:amp},{samps:223200,fill:song,echo:1024}]);
+}
+</script></head>
+<body onload="setup();htmlbx.value=document.documentElement.innerHTML;" bgcolor="gainsboro" style="font-family:sans-serif;">
+<b>Theramin</b>
+<table><tr valign="top"><td>
+<div style="touch-action: none;">
+<canvas id="glcanvas" width="512" height="320"></canvas></div>
+<button onclick='togglePause();if(!rp)startSound();'>On/Off</button>
+<button onclick='fullScreen(document.getElementById("glcanvas"));'>Full Screen</button>
+</td><td>
+The theramin is offscreen to the left.
+This example uses the object returned from plAy() to adjust the playbackRate
+on the source and the gain on the volume nob. The volume nob is only available
+if you set the volume on playback otherwise the source is connected directly to
+the audio context's destination (speakers/headphones etc).<br><br>
+The 1 user defined uniform float actually comes in handy for those times you
+need a frame count, delta time or in this case a running sum of time*freq.
+When you need more just send the last parameter U to G() as an object or array.
+</td></tr></table>
+<textarea id="htmlbx" cols="80" rows="15" wrap="off"  spellcheck="false"
+ style="font-family: Lucida Console;"></textarea>
+</body></html>

@@ -16,19 +16,24 @@ function A(a){//a=[{samps:24000,fill:ampk},{...}] 1 object for each sound effect
 function plAy(n,O){if(!A.AC){console.log("A.AC does not exist");return;}
   let src=A.AC.createBufferSource();//O is optional and can be null or {}, don't use false just leave out
   src.buffer=A.buf[n];
-  if(O){//playbackRate still not working in edge
-    if(O.randomize)src.playbackRate.setValueAtTime(1.+Math.random()*.1,0);
-    if(O.rate)src.playbackRate.setValueAtTime(O.rate,0);
-    if(O.volume){
+  var R={source:src},output=A.AC.destination,st=0;
+  if(O){
+    if(O.gain){
       var gn=A.AC.createGain();
-      src.connect(gn);
-      gn.connect(A.AC.destination);
-      gn.gain.value=O.volume;
-    }else src.connect(A.AC.destination);
+      gn.connect(output);output=gn;
+      gn.gain.value=O.gain;
+      R.gain=gn;
+    }if(O.pan){
+      var pn=O.pan=="3D"?A.AC.createPanner():A.AC.createStereoPanner();
+      pn.connect(output);output=pn;
+      if(O.pan!="3D")pn.pan.value=O.pan;
+      R.pan=pn;
+    }if(O.randomize)src.playbackRate.setValueAtTime(1.+Math.random()*.1,0);
+    if(O.rate)src.playbackRate.setValueAtTime(O.rate,0);
     if(O.detune)src.detune.setValueAtTime(O.detune,0);
     if(O.loop)src.loop=true;
-    if(O.startTime)src.start(O.startTime);else src.start(0);
-  }else {src.connect(A.AC.destination);src.start(0);} 
+    if(O.startTime)st=O.startTime;
+  }src.connect(output);src.start(st);return R;
 }
 function G(C,F,O,U){//O={fboScript:'',onFrame:null,wrap:CLAMP,magFilter:NEAREST,minFilter:NEAREST}
  G.u={width:0.,height:0.,time:0.,user:0.,key:0.,mousex:0.,mousey:0.,mousedown:0.};

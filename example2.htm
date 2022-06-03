@@ -65,11 +65,11 @@ function game(){if(G.paused)return;
   U.bx+=dtx;U.by+=dty;
   if(Math.abs(U.bx)>1.){dtx=-dtx;
     if(dtx<0.){
-      if(Math.abs(U.pry-U.by+.05)>0.1){U.scoreL+=1;dty=0.;plAy(1,{randomize:true});}
-      else {dty=(U.by-U.pry-.05)*.25;plAy(0,{randomize:true});}
+      if(Math.abs(U.pry-U.by+.05)>0.1){U.scoreL+=1;dty=0.;plAy(1,null);}
+      else {dty=(U.by-U.pry-.05)*.25;plAy(0,{randomize:true,pan:.75});}
     }else{
-      if(Math.abs(U.ply-U.by+.05)>0.1){U.scoreR+=1;dty=0.;plAy(1,{randomize:true});}
-      else {dty=(U.by-U.ply-.05)*.25;plAy(0,{randomize:true});}
+      if(Math.abs(U.ply-U.by+.05)>0.1){U.scoreR+=1;dty=0.;plAy(1,null);}
+      else {dty=(U.by-U.ply-.05)*.25;plAy(0,{randomize:true,pan:-.75});}
     }
   }
   if(Math.abs(U.by)>1.)dty=-dty;
