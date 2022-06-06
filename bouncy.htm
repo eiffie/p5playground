@@ -1,0 +1,131 @@
+<html><head><title>Bouncy</title>
+<script src="WAG.js"></script>
+<script id="fragShader" type="x-shader/x-fragment">
+precision highp float;
+uniform vec2 res;
+uniform float time;
+uniform vec2 v0,v1,v2,v3;
+#define mixr(d,c,r) O.xyz=mix(c*max(0.,(1.-sqrt(d/r))),O.xyz,smoothstep(r,r+.01,d))
+#define addr(d,c,r) O.xyz+=c*max(0.,(1.-sqrt(d/r)))
+#define blst(v,k) if(k!=0.){d=length(p-v);addr(d,vec3(1.3,.4,0.),.3);}
+#define tube(a,b,c) {vec2 pa=p-a,ba=b-a;d=length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),0.,1.));mixr(d,c,.05);}
+float xpath(vec2 p){return sin(p.y+sin(.5*p.x*p.x*p.x+p.y*1.3));}
+float tex(vec2 p){p=sin(p.xy+2.4*sin(p.yx));return p.x+p.y;}
+float DE(vec2 p){
+ float d=1.,i=floor(p.y+time)+.5;
+ if(sin(i+13.*sin(i))>.5){
+  float y=floor(p.y+fract(time))+.5-fract(time);
+  d=length(p-vec2(xpath(vec2(p.x,y))*.25,y));
+ }
+ return min(min(1.+p.y,1.-abs(p.x-xpath(p))),pow(d,.3)-.6);
+}
+void main(){
+ vec4 O=vec4(0,0,0,1);
+ vec2 uv=(2.*gl_FragCoord.xy-res)/res.y;
+ vec2 p=2.*uv;p.y+=v2.y;
+ float d=-DE(p),d2=abs(sin(10.*(p.x+d)));
+ O.z=smoothstep(0.,-.05,d)*(.4+.1*tex(p*2.3));
+ d2=max(d2,smoothstep(.8,1.,d));d=clamp(d,0.,1.);
+ O.x=1.3*d*d2;O.y=.8*d*d*d2;
+ O.xy-=vec2(.1)*tex(p*4.)*d;
+ tube(v0,v2,vec3(.4,1.,.6));
+ tube(v1,v2,vec3(.4,.6,1.));
+ d=length(p-v2);
+ mixr(d,vec3(2.-1.*abs(sin(time*10.)),.9,.8),.1);
+ blst(v0,v3.x);
+ blst(v1,v3.y);
+ gl_FragColor=O;
+}
+</script>
+<script>
+let iLeft=0.,iRight=0.,src;
+let fRadius=0.02,fDrag=0.99,fBlast=0.05,fGravity=0.0002;
+let U={v0:V2.c(0.),v1:V2.c(0.),v2:V2.c(0.),v3:V2.c(0.)};
+let v=new Array(3),vp=new Array(3);
+function NewGame(){
+  for(let i=0;i<3;i++){v[i]=V2.c(0.);vp[i]=V2.c(0.);}
+  let f=.2;iLeft=iRight=0.;
+  v[0].x=vp[0].x=v[0].y=vp[0].y=v[1].y=vp[1].y=-f;
+  v[1].x=vp[1].x=f;v[2].x=vp[2].x=0.;v[2].y=vp[2].y=.14646;
+}
+function xpath(p){return Math.sin(p.y+Math.sin(.5*p.x*p.x*p.x+p.y*1.3));}
+function DE(p){with(Math){
+  let d=1.,i=floor(p.y+G.u.time)+.5;
+  if(sin(i+13.*sin(i))>.5){
+    let t=G.u.time % 1.,y=floor(p.y+t)+.5-t;
+    let tmp=V2.sub(p,new V2(xpath(new V2(p.x,y))*0.25,y));
+    d=tmp.mag();
+  }
+  return min(min(1.0+p.y,1.0-abs(p.x-xpath(p))),pow(d,0.3)-0.6);}
+}
+function Verlet(){
+  for(let i=0;i<3;i++){//stick constraints
+    let dlt=V2.sub(v[i],v[(i+1)%3]);
+    dlt.mlc(0.45*(dlt.mag()-0.4));
+    v[i].sub(dlt);v[(i+1)%3].add(dlt);
+  }
+  for(let i=0;i<3;i++){//verlet integration
+    let tmp=V2.sub(v[i],vp[i]);
+    tmp.mlc(fDrag);
+    V2.cpy(vp[i],v[i]);
+    v[i].add(tmp);
+  }
+  for(let i=0;i<3;i++){//collisions
+    let d=DE(v[i])+0.1;
+    if(d<fRadius){
+      let tmp=V2.add(v[i],new V2(fRadius,0.));
+      let nx=DE(tmp)+0.1-d;
+      tmp=V2.add(v[i],new V2(0.,fRadius));
+      let ny=DE(tmp)+0.1-d;
+      let N=new V2(nx,ny);
+      N.nrm();
+      let vel=V2.sub(v[i],vp[i]); 
+      if(V2.dot(N,vel) < 0.0){vel.rfl(N);vel.mlc(fDrag);}//if moving toward surface bounce
+      N.mlc(fRadius-d);
+      v[i].add(N);
+      vel.mlc(fDrag);
+      vp[i]=V2.sub(v[i],vel);
+    }
+    vp[i].y+=fGravity;//gravity
+    if(i<2)if((i==0 && U.v3.x>0.)||(i==1 && U.v3.y>0.)){//thrusters
+      let tmp=V2.sub(vp[i],vp[2]);
+      tmp.mlc(fBlast);
+      vp[i].add(tmp);
+    }
+  }
+}
+function ost(k){//echo 701,blen=262144
+  k+=16384;return (0.00078125*((k*(k>>7 & k>>12))%256))-.1;
+}
+function setup(){
+  NewGame();
+  G("cnv","fragShader",{onFrame:draw,fps:40,uniform:U});
+  togglePause();
+  A([{samps:262144,fill:ost,echo:701,sampleRate:3000}]);
+}
+function draw(){if(G.paused)return;
+  Verlet();
+  if(G.u.key==G.LEFT_ARROW){iLeft=1.;fBlast=.05;}
+  if(G.u.key==G.RIGHT_ARROW){iRight=1.;fBlast=.05;}
+  U.v3.x=iLeft;U.v3.y=iRight;
+  V2.cpy(U.v0,v[0]);V2.cpy(U.v1,v[1]);V2.cpy(U.v2,v[2]);
+  if(!G.u.mousedown)iLeft=iRight=0.;
+  else {
+    if(mouseX<H/2)iLeft=1.; else iRight=1.;
+    fBlast=.1;
+  }
+}
+</script></head>
+<body onload="setup();" style="font-family:Sans-Serif;"><b>Bouncy</b> a small demo game
+<table><tr valign="top"><td><div style="touch-action: none;">
+<canvas id="cnv" width="320" height="320"></canvas></div>
+<button onclick="if(!src)src=plAy(0,{loop:true});togglePause();this.textContent=(G.paused?'Resume':'Pause');">Play</button>
+<button onclick="fullScreen(cnv);">Full Screen</button>
+</td><td>
+Use the arrow keys to thrust. Green is left arrow, blue is right. Or on a touch
+screen tap left for green, right for blue thruster.
+Don't get them mixed up! Get to the top to achieve Jedi status. (there is no top)
+<br><br>
+Download this page and edit it in your favorite editor. It will run anywhere it can
+find <a href="WAG.js">WAG.js.</a>
+</td></tr></table></body></html>

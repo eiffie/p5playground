@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html><head><title>Million Cubes</title>
+<meta charset="utf-8" />
+<script id="fragShader" type="x-shader/x-fragment">
+precision mediump float;
+uniform sampler2D fbo;
+uniform vec2 res;
+uniform float time;
+#define pi 3.14159
+float nrnd(float r, float t){return fract((r+1.6713274)*(1.+floor(t)));}
+mat2 rmat(float a){float ca=cos(a),sa=sin(a);return mat2(ca,sa,-sa,ca);}
+float row(vec3 p,float x){p.x+=x;p=abs(p);return max(p.x-.05,max(p.y,p.z)-.15);}
+float tyme;
+float DE(in vec3 p){
+  vec3 s=sin(floor(p)+.1);
+  float rnd=fract(s.x+s.y+s.z);
+  p=fract(p)-.5;
+  float tim=tyme*(.5+.5*rnd);
+  rnd=nrnd(rnd,tim);
+  if(rnd<.66){p=p.yzx;if(rnd<.33)p=p.yzx;}
+  rnd=nrnd(rnd,tim);
+  s=p;s.yz=rmat(pi/2.*fract(tim))*s.yz;
+  return min(row(rnd<.33?s:p,0.),min(row(rnd>=.33 && rnd<.66?s:p,-.1),row(rnd>=.66?s:p,.1)));
+}
+vec3 color(in vec3 p,in float eps){
+  vec3 s=sin(floor(p)+.1),mcol=vec3(0);eps+=0.001;
+  float rnd=fract(s.x+s.y+s.z);
+  p=fract(p)-.5;
+  float tim=tyme*(.5+.5*rnd);
+  int n=int(floor(tim));
+  for(int i=60;i>=0;i--){
+    if(i>n)continue;
+    float r1=nrnd(rnd,float(i));
+    if(r1<.66){p=p.yzx;if(r1<.33)p=p.yzx;}
+    float r2=nrnd(r1,float(i)), x=p.x;//rotate middle
+    if(r2>=.66)x+=.1;//rotate neg side
+    else if(r2>=.33)x-=.1;//rotate pos side
+    if(abs(x)-.05<=eps)p.yz=(i==n?rmat(pi/2.*fract(tim)):mat2(0,1,-1,0))*p.yz;//rotate
+    if(r1<.66){p=p.zxy;if(r1<.33)p=p.zxy;}//unroll
+  }
+  s=abs(p);
+  float d0=max(s.x,max(s.y,s.z));
+  vec2 b=s.xy;
+  if(s.x==d0){mcol=vec3(1,1,p.x<0.?1:0);b=s.yz;}
+  else if(s.y==d0){mcol=vec3(1.,p.y<0.?.25:0.,0.);b=s.xz;}
+  else {mcol=vec3(0,1,0);if(p.z<0.)mcol=mcol.zxy;}
+  b=abs(mod(b,.1)-0.05);
+  rnd=min(b.x,b.y);
+  return mcol*smoothstep(0.,eps*2.,rnd);
+}
+vec3 normal(vec3 p, float d){//from dr2
+  vec2 e=vec2(d,-d);vec4 v=vec4(DE(p+e.xxx),DE(p+e.xyy),DE(p+e.yxy),DE(p+e.yyx));
+  return normalize(2.*v.yzw+vec3(v.x-v.y-v.z-v.w));
+}
+float rnd;
+void randomize(in vec2 p){rnd=fract(time+sin(dot(p,vec2(13.3145,117.7391)))*42317.7654321);}
+vec3 scene(vec3 ro, vec3 rd){
+  float t=DE(ro)*rnd,d,px=1./res.y;
+  vec3 L=normalize(vec3(0.4,0.5,-0.5)),C=vec3(0);
+  for(int i=0;i<99;i++){
+    t+=d=DE(ro+rd*t);
+    if(t>70.0 || d<px*t)break;
+  }
+  if(d<px*t*5. && t<70.){
+    vec3 so=ro+rd*t;
+    C=color(so,DE(so));
+    vec3 N=normal(so,d);
+    float dif=0.5+0.5*dot(N,L);
+    float vis=clamp(dot(N,-rd),0.05,1.0);
+    float fr=pow(1.-vis,5.0);
+    C=(C*dif+fr*max(0.,dot(L,reflect(rd,N))))*exp(-t*.15);
+  }
+  return C/max(1.,time-60.);
+}
+vec3 path(float tm,float t){float a=tm*pi*0.1;return vec3(cos(a),sin(a),t);}
+mat3 lookat(vec3 fw){vec3 up=vec3(0.0,1.0,0.0),rt=-normalize(cross(fw,up));return mat3(rt,normalize(cross(rt,fw)),fw);}
+void mainImage( out vec4 fragColor, in vec2 fragCoord ) {
+ randomize(fragCoord);tyme=max(0.,60.-time);float t=pow(tyme,1.3);
+ vec3 ro=path(tyme,t),fw=normalize(path(tyme,t+1.)-ro);
+ vec3 rd=lookat(fw)*normalize(vec3((res-2.0*fragCoord)/res.y,3.0));
+ fragColor=vec4(scene(ro,rd),1.0);
+}
+void main(){mainImage(gl_FragColor,gl_FragCoord.xy);}
+</script>
+<script src="WAG.js"></script>
+<script>
+let N=[0,7,-5,5,-3,3,-1,0],src;
+function freq(n){
+  let m=Math.floor(n+24.1)%12;
+  if(m!=7 && (m%2)>0)return 0.;
+  return Math.pow(2.,n/12.);
+}
+function Sound(time){
+  let t=time*16.,a=0.;
+  t*=1.+Math.pow(V1.fract(t/8.)*V1.fract(t/2.),15.+20.*V1.fract(t/256.));
+  let n=0,d=32.;
+  for(let i=0.;i<3.;i+=1.){
+    n+=N[Math.floor((t/d)%8)];
+    let f=i+1.;
+    a+=V1.fract(f*.3+freq(n)*t*f*6.6)-.5;
+    d/=4;
+  }
+  let v=a+(V1.fract(a*7./3.)-.5)*.75;
+  return v*.1;
+}
+function sEq(a,b){return !(a<b || a>b);}
+function song(k){return Sound(k/48000.);}
+function start(){
+  src=plAy(0,{loop:true,gain:.1});
+  btnPlay.textContent='||';
+  togglePause();
+}
+function rewind(){
+  if(src)src.source.stop();
+  G.u.time=G.st=G.pt=0;G.paused=true;
+  start();
+}
+function play(){
+  if(!src)start();
+  else {togglePause();btnPlay.textContent=(G.paused?'>':'||');}
+}
+function volAdjust(){if(G.paused || !src)return;
+  src.gain.gain.value=V1.saturate(G.u.time*.1)*V1.saturate(1.-(G.u.time-50.)*.05);
+}
+function setup(){
+  G("glcanvas","fragShader",{onFrame:volAdjust});
+  togglePause();
+  A([{samps:768000,fill:song,sampleRate:48000}]);
+}
+</script></head>
+<body onload="setup();" bgcolor="gainsboro" style="font-family:sans-serif;">
+<div style="touch-action: none;">
+<canvas id="glcanvas" width="512" height="320"></canvas></div>
+<br>
+<button id='btnPlay' onclick='play()'>&gt</button>
+<button onclick='rewind();'>|&lt</button>
+<button onclick='fullScreen(document.getElementById("glcanvas"));'>Full Screen</button>
+</body>
+</html>

@@ -1,0 +1,232 @@
+<html><head><title>Pinball</title>
+<script src="WAG.js"></script>
+<script id="fragShader" type="x-shader/x-fragment">
+precision highp float;
+uniform vec2 res;
+uniform float time;
+uniform float user;
+uniform float key;
+uniform vec3 mouse;
+uniform float U[7];
+#define RADIUS .075
+float Paddle(vec2 pa, vec2 ba){
+ float t=clamp(dot(pa,ba)/dot(ba,ba),0.,1.);
+ return length(pa-ba*t)+t*.01;}
+float Tube(vec2 pa, vec2 ba){return length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),0.,1.));}
+vec2 pdl,pdr,bp;float mld=100.;
+float DE2(in vec2 p){
+ float y=p.y*.12,dP=min(Paddle(p-vec2(-.5,-1.),pdl),Paddle(p-vec2(.5,-1.),pdr));
+ p.x=abs(p.x);float d=min(max(p.x-1.,abs(p.y-.05)-1.5),length(p-vec2(0.,1.5))-1.);
+ p.y=abs(p.y);d=min(abs(d),Tube(p-vec2(.47-y,.95),vec2(.32,-.12)));
+ p.y=abs(p.y-1.);d=min(d,Tube(p-vec2(.26,1.),vec2(.15,-.14)));
+ float dB=length(p-vec2(.74-y,.79));mld=min(mld,dB);d=min(min(d,dB),dP);d-=.05;
+ return d;}
+float noise2d(vec2 v){
+  vec4 h=fract(sin(vec4(floor(v.x)+floor(v.y)*1000.)+vec4(0,1,1000,1001))*1000.);
+  v=smoothstep(0.,1.,fract(v));return mix(mix(h.x,h.y,v.x),mix(h.z,h.w,v.x),v.y);}
+vec3 Color(in vec3 p0){
+ vec2 p=p0.xz;
+ float y=p.y*0.12,dP=min(Paddle(p-vec2(-.5,-1.),pdl),Paddle(p-vec2(.5,-1.),pdr));
+ p.x=abs(p.x);
+ float r=length(p-vec2(0.,1.5))-1.,d=min(max(p.x-1.,abs(p.y)-1.55),r),dB;
+ p.y=abs(p.y);d=min(abs(d),Tube(p-vec2(.47-y,.95),vec2(.32,-.12)));
+ p.y=abs(p.y-1.0);d=min(d,Tube(p-vec2(.26,1.),vec2(.15,-.14)));
+ dB=length(p-vec2(.74-y,.79));if(dP<d && dP<dB)return vec3(1.,.9,.8);
+ vec3 col=vec3(.5);
+ if(dB<d)col+=0.4*sin(p0.zxx*9.)+sin(p0.y*150.)*.1;
+ else {if(p0.y>1.)col=vec3(.4,.6,.7);if(p0.y<-.5)col=vec3(.7,.6,.5);
+  if(p0.y>.4)col.b+=.3;vec3 h=fract(p0*20.)-.5;
+  col+=vec3((h.x*h.z+h.y)*.1+p0.y*2.)+smoothstep(.05,.04,abs(p0.y))*.3;
+  col=mix(col,vec3(1),smoothstep(0.,.005,max(p.x-.95,min(p0.z-1.5,r+.05))));
+ }return col+sin(p0.xyy*3.)*.1;}
+float RI(float a,float b,float r){return max(max(a,b),length(max(vec2(0),vec2(r+a,r+b)))-r);}
+float DE(in vec3 p){return RI(DE2(p.xz),p.y-RADIUS,.02);}
+float Sphere( in vec3 ro, in vec3 rd, in vec3 p, in float r){
+ p=ro-p;float t=100.,b=dot(p,rd),h=b*b-dot(p,p)+r*r;
+ if(h>=0.){t=-b-sqrt(h);if(t>0.)return t;}return 10.;}
+vec2 rotate(vec2 v, float a) {return cos(a)*v+sin(a)*vec2(v.y,-v.x);}
+vec3 tex(vec2 p){return vec3(.7,.5,.3)*(.9+.1*noise2d(p*vec2(3,200)))*smoothstep(-.01,.01,length(p-vec2(-.7,-0.865))-RADIUS);}
+vec3 scene(vec3 ro, vec3 rd){
+ float maxt=(-RADIUS+.005-ro.y)/rd.y,tball=Sphere(ro,rd,vec3(bp.x,0.,bp.y),RADIUS);
+ float t=(RADIUS+0.005-ro.y)/rd.y,d,od=1.;
+ for(int i=0;i<24;i++){t+=d=DE(ro+rd*t);if(d<.001||t>maxt)break;od=d;}
+ vec3 col=vec3(0);vec2 p=ro.xz+rd.xz*maxt;
+ float d2=min(max(abs(p.x)-1.,abs(p.y-.05)-1.5),length(p-vec2(0.,1.5))-1.);
+ if(d2<0.){vec3 P=ro+rd*maxt+vec3(-.03,0.,.03);d2=DE(P);
+  d2=min(d2,length(P-vec3(bp.x,-RADIUS+.005,bp.y)));d2=smoothstep(0.,.1,d2);
+  col=tex(p.yx)*(0.7+0.3*d2)+abs(sin(floor(p.x*20.)))*.2*d2;}
+ if(d<.01){float dif=clamp(1.-d/od,.6,1.);
+  col=mix(Color(ro+rd*t)*dif,col,smoothstep(0.,.01,d));}
+ if(tball<t){t=tball;
+  vec3 N=normalize(ro+rd*tball-vec3(bp.x,0.0,bp.y));
+  d=dot(N,-rd);float dif=max(0.,d);
+  col=mix(col,vec3(1.,1.,.7)*dif,smoothstep(0.,.56,d));}
+ if(U[6]>0.)col+=U[6]*vec3(1)/(.5+1000.*mld*mld);
+ return col;}
+mat3 lookat(vec3 fw){fw=normalize(fw);vec3 rt=normalize(cross(fw,vec3(0,1,0)));return mat3(rt,cross(rt,fw),fw);}
+void main(){bp=vec2(U[0],U[1]);
+ pdl=rotate(vec2(.33,0.),U[2]);pdr=rotate(vec2(-.33,0.),U[3]);
+ vec3 ro=vec3(.0,2.5,-2.5),rd=lookat(vec3(bp.x*.05,.0,bp.y*.2)-ro)*normalize(vec3(gl_FragCoord.xy-.5*res,res.x));
+ gl_FragColor=vec4(scene(ro,rd),1.);}
+</script>
+<script>
+let W=512.,H=360.,iLeft,iRight,iLeftM,iRightM,iLeftK,iRightK,iBalls,iState,iScore;
+let ITERS=16;
+let GRAVITY=1.5,FLIPPER_SPEED=3.,RADIUS=.075,time,fFrameSecs=0.025;
+let v=[0.,0.,0.,0.,0.,0.,0.],pdlx,pdly,pdrx,pdry;//0,1=ball,2,3=pdl,4,5=vel,6=light
+function NewGame(){
+  v[0]=-0.94+RADIUS;v[1]=-.75;//ball
+  v[2]=.5;v[3]=-0.5;//paddle
+  v[4]=v[5]=v[6]=time=0.;//velocity
+  pdlx=pdly=pdrx=pdry=0.;
+  iLeft=iRight=iLeftM=iRightM=iLeftK=iRightK=iScore=0.;
+  iBalls=3;iState=-1;
+}
+function length(x,y){return Math.sqrt(x*x+y*y);}
+function clamp(x,a,b){return Math.min(b,Math.max(a,x));}
+function dot(ax,ay,bx,by){return ax*bx+ay*by;}
+//these functions need to be the same as in the script
+function Tube(pax,pay,bax,bay,A){
+  let t=clamp(dot(pax,pay,bax,bay)/dot(bax,bay,bax,bay),0.,1.);
+  let L=length(bax*t-pax,bay*t-pay);
+  if(A){A.t=t;A.L=L;}
+  return L;
+}
+function Paddle(pax,pay,bax,bay){
+  let O={t:0.,L:0.};
+  Tube(pax,pay,bax,bay,O);
+  return O.L+O.t*0.01;
+}
+function Tube2(pax,pay,bax,bay,A){
+  Tube(pax,pay,bax,bay,A);
+  A.L+=A.t*0.01;
+}
+
+function DEP(px,py,bNoFlip){//determine the push from paddles
+ let dl={t:0.,L:0.},dr={t:0.,L:0.};
+ Tube2(px+.5,py+1.,pdlx,pdly,dl);
+ dl.t-=0.05;dl.L-=0.05;
+ Tube2(px-.5,py+1.,pdrx,pdry,dr);
+ dr.t-=0.05;dr.L-=0.05;
+ let y=py*0.12;
+ px=Math.abs(px);py=Math.abs(py);py=Math.abs(py-1.0);
+ let dB=length(px-.74+y,py-.79)-0.05;
+ if(dB<RADIUS){
+  v[6]=1.0;//light on
+  plAy(y>0. && y<.1?0:1,null);
+  iScore+=(y>0.1?50:1);//points
+  return 2.0;
+ }
+ if(bNoFlip==0 && Math.min(dl.L,dr.L)<RADIUS){//possible push
+  let key=0;//right
+  if(dl.L<dr.L){
+   key=1;//left
+   dr.t=dl.t;
+  }
+  if((key!=0 && iRight!=0)||(key==0 && iLeft!=0))return 5.0*dr.t;
+ }
+ return 0.0;
+}
+function DE(px,py){with(Math){//2d version
+ let y=py*0.12;
+ let dP=Paddle(px+.5,py+1.,pdlx,pdly);
+ dP=min(dP,Paddle(px-.5,py+1.,pdrx,pdry));
+ px=abs(px);
+ let d=min(max(px-1.0,abs(py)-1.5),length(px,py-1.5)-1.0);
+ py=abs(py);
+ d=min(abs(d),Tube(px-.47+y,py-.95,0.32,-0.12,null));
+ py=abs(py-1.0);
+ d=min(d,Tube(px-.26,py-1.,0.15,-0.14,null));
+ let dB=length(px-.74+y,py-.79);
+ d=min(min(d,dB),dP);
+ d-=0.05;
+ return d;}
+}
+function GameLoop(){with(Math){
+  let dt=fFrameSecs,tx,ty;
+  if(iState<0){v[0]=-0.94+RADIUS;v[1]=0.;v[4]=0.;v[5]=2.75+sin(time);iState=1;}
+  v[6]=max(0.,v[6]-3.*dt);
+  v[5]-=GRAVITY*dt;
+  let oflpx=v[2],oflpy=v[3];
+  if(iRight)v[2]-=FLIPPER_SPEED*dt;
+  else v[2]+=FLIPPER_SPEED*dt*.5;
+  if(iLeft)v[3]+=FLIPPER_SPEED*dt;
+  else v[3]-=FLIPPER_SPEED*dt*.5;
+  v[2]=max(-0.25,min(0.5,v[2]));
+  v[3]=max(-0.5,min(0.25,v[3]));
+  let bNoFlip=(oflpx==v[2] && oflpy==v[3])?1:0;
+  let t=0.0,d;
+  let sdt=dt/ITERS;
+  let sflpx=(v[2]-oflpx)/ITERS,sflpy=(v[3]-oflpy)/ITERS;
+  let e=RADIUS*0.5;
+  for(let i=0;i<ITERS;i++){//cutting the step into subframes (really important on show machines)
+   pdlx=0.33*cos(oflpx);pdly=-.33*sin(oflpx);
+   pdrx=-0.33*cos(oflpy);pdry=.33*sin(oflpy);
+   tx=v[0]+v[4]*t;ty=v[1]+v[5]*t;
+   d=DE(tx,ty);
+   if(d<RADIUS){//i put this inside the loop so there can be multiple subframe bounces
+    v[0]+=v[4]*t;v[1]+=v[5]*t;
+    let Nx=DE(v[0]+e,v[1])-DE(v[0]-e,v[1]),Ny=DE(v[0],v[1]+e)-DE(v[0],v[1]-e);
+    let r=length(Nx,Ny)+.0000001;
+    Nx/=r;Ny/=r;
+    let h=-dot(Nx,Ny,v[4],v[5]);
+    if(h>0.0){//if the ball has gone more than half way thru we are screwed
+     if(h>1.)plAy(2,{gain:h/64.});
+     v[4]+=h*2.*Nx;v[5]+=h*2.*Ny;//I - 2 * dot(N, I) * N
+     v[4]/=(1.1+h*0.2),v[5]/=(1.1+h*0.2);
+     h=DEP(v[0],v[1],bNoFlip);
+     v[4]+=Nx*h;v[5]+=Ny*h;
+     v[0]+=Nx*(RADIUS-d);v[1]+=Ny*(RADIUS-d);
+    }
+    t=0.0;
+   }
+   t+=sdt;
+   oflpx+=sflpx;oflpy+=sflpy;
+  }
+  v[0]+=v[4]*t;v[1]+=v[5]*t;
+  if(v[1]<-1.45+RADIUS*1.1){
+    iBalls-=1;iState=-1;
+    if(iBalls==0){
+      togglePause();
+      score.textContent="Game Over. Final score:"+iScore;
+      play.textContent="Play";
+      NewGame();
+    }else score.textContent="Score:"+iScore+" Balls:"+iBalls;
+  }}
+}
+
+function ping(k){let t=k/12000.,st=Math.sqrt(t);return Math.sin(st*8500)*(1.-st)*.25;}
+function pong(k){let t=k/12000.,st=Math.sqrt(t);return Math.sin(t*t*8300)*(1.-st)*.25;}
+function thud(k){let t=k/12000.,st=Math.sqrt(t);return Math.sin(st*300)*(1.-st)*.5;}
+function padl(k){let t=k/12000.,st=Math.sqrt(t);return Math.sin(t*t*800)*(1.-st)*.1;}
+
+function setup(){
+  G("cnv","fragShader",{onFrame:draw,fps:60,uniform:{U:v}});
+  togglePause();
+  A([{samps:12000,fill:ping},{samps:12000,fill:pong},
+    {samps:12000,fill:thud},{samps:12000,fill:padl}]);
+  NewGame();
+}
+function draw(){if(G.paused)return;
+  if(G.u.key==G.LEFT_ARROW)iLeftK=1.;else iLeftK=0.;
+  if(G.u.key==G.RIGHT_ARROW)iRightK=1.;else iRightK=0.;
+  if(G.u.mousedown){if(G.u.mousex<.5)iLeftM=1.;else iRightM=1.;}else iLeftM=iRightM=0.;
+  if(iLeft==0. && iLeftK+iLeftM>0.)plAy(3,null);
+  if(iRight==0. && iRightK+iRightM>0.)plAy(3,null);
+  iLeft=iLeftK+iLeftM;iRight=iRightK+iRightM;
+  GameLoop();
+  time+=fFrameSecs;
+}
+</script></head>
+<body onload="setup();" style="font-family:Verdana;"><b>Pinball</b> <span id="score">Score:0 Balls:3</span>
+<table><tr valign="top"><td><div id="c" style="touch-action: none;">
+<canvas id="cnv" width="512" height="360"></canvas></div>
+<button id="play" onclick="togglePause();this.textContent=G.paused?'Resume':'Pause';">Play</button>
+<button onclick="fullScreen(cnv);">FullScreen</button>
+</td><td>
+Use Arrow keys or tap/click right/left.
+Try to hit the bells at the top which are worth 50 points. The ones on the bottom are
+only 1 point.<br><br>
+Download this page and edit it in your favorite editor. It will run anywhere it can
+find <a href="WAG.js">WAG.js.</a>
+</td></tr></table></body></html>

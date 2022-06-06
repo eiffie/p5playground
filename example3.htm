@@ -4,12 +4,11 @@
 <script id="fboShader" type="x-shader/x-fragment">
 precision mediump float;
 uniform sampler2D fbo;
-uniform float u[8];
-#define rez vec2(u[0],u[1])
-#define time u[2]
-#define game u[3]
-#define key u[4]
-#define mouse vec3(u[5],u[6],u[7])
+uniform vec2 res;
+uniform float time;
+uniform float user;
+uniform float key;
+uniform vec3 mouse;
 #define BX 9.
 #define BY 16.
 #define SPD .3
@@ -24,13 +23,13 @@ vec3 c(vec2 b){
 }
 void main(){
  vec2 U=gl_FragCoord.xy;
- vec4 O=texture2D(fbo,U/rez);
+ vec4 O=texture2D(fbo,U/res);
  if(time<1. || key==32.){//reset, logic: 0:bx,by,dx,dy 1:px,tm,sc,st
    if(U.y<1. && U.x<2.){if(U.x<1.)O=vec4(.5,.1,0.,1.);else O=vec4(.5,time,0.,3.);}
-   else if(U.y<rez.y*.5 || (U.y>.75*rez.y && U.y<0.875*rez.y))O=vec4(0);//empty areas
+   else if(U.y<res.y*.5 || (U.y>.75*res.y && U.y<0.875*res.y))O=vec4(0);//empty areas
    else O=vec4(.5);
  }else{//playing
-   vec4 L1=texture2D(fbo,vec2(.5,.5)/rez),L2=texture2D(fbo,vec2(1.5,.5)/rez);
+   vec4 L1=texture2D(fbo,vec2(.5,.5)/res),L2=texture2D(fbo,vec2(1.5,.5)/res);
    L2.zw=abs(L2.zw);//remove flags
    if(L2.w<1.){gl_FragColor=O;return;}//end game
    if(U.y<1. && U.x<2.){//logic
@@ -48,11 +47,11 @@ void main(){
      if(a>0.){L1.w=-abs(L1.w);L2.z+=1.;L2.z=-L2.z;}
      if(U.x<1.)O=L1;else O=L2;
    }else{
-     vec2 b=U/rez;
+     vec2 b=U/res;
      if(brick(b)==brick(L1.xy))O.a=0.;
      if(O.a==0.)O=vec4(0);else O=vec4(c(b),.5);
      O.rgb=mix(vec3(1.,.1,.27),O.rgb,smoothstep(0.,0.02,max(0.,length(b-L1.xy))));
-     O.rgb=mix(vec3(.5,.17,1.),O.rgb,smoothstep(0.,2./rez.y,pdl(b,L2.x)));
+     O.rgb=mix(vec3(.5,.17,1.),O.rgb,smoothstep(0.,2./res.y,pdl(b,L2.x)));
    }
  }
  gl_FragColor=O;
@@ -61,8 +60,7 @@ void main(){
 <script id="fragShader" type="x-shader/x-fragment">
 precision mediump float;
 uniform sampler2D fbo;
-uniform float u[8];
-#define rez vec2(u[0],u[1])
+uniform vec2 res;
 float segment(vec2 uv){//from Andre https://www.shadertoy.com/view/Xsy3zG
    uv = abs(uv);return (1.0-smoothstep(0.0,0.28,uv.x)) * (1.0-smoothstep(0.4-0.14,0.4+0.14,uv.y+uv.x));
 }
@@ -86,9 +84,9 @@ float formatInt(vec2 uv, vec2 rect, float num, int spaces){//only good up to 6 s
    return sevenSegment(uv,int(num));
 }
 void main(){//gl_FragColor=vec4(0,1,0,1);return;
-  vec2 uv=gl_FragCoord.xy/rez;
+  vec2 uv=gl_FragCoord.xy/res;
   vec4 O=texture2D(fbo,uv);
-  vec4 st=texture2D(fbo,vec2(1.5,.5)/rez);//pass events back to cpu
+  vec4 st=texture2D(fbo,vec2(1.5,.5)/res);//pass events back to cpu
   st=abs(st);
   float d=formatInt(uv-vec2(0.05,0.05), vec2(0.1,0.05), st.z, 4);
   d+=formatInt(uv-vec2(0.8,0.05), vec2(0.025,0.05), st.w, 1);
@@ -99,7 +97,6 @@ void main(){//gl_FragColor=vec4(0,1,0,1);return;
 <script>
 function game(){//play sounds
   if(G.r && !G.paused){
-    //console.log(G.u.time + " " + G.st + " " + G.pt + " " + G.clock);
     if(G.r[6]<0.)plAy(0,null);
     if(G.r[7]<0.)plAy(1,null);
   }
@@ -107,9 +104,9 @@ function game(){//play sounds
 function ping(k){t=k/24000.;return Math.sin(t*t*2000.)*(1.-t);}
 function pong(k){t=k/24000.;return Math.sin(t*1000.)*(1.-t);}
 function setup(){
-  A([{samps:24000,fill:ping},{samps:24000,fill:pong}]);
   G("glcanvas","fragShader",{fboScript:"fboShader",onFrame:game,returnPixels:2});
   togglePause();
+  A([{samps:24000,fill:ping},{samps:24000,fill:pong}]);
 }
 function loadme(){
   document.getElementById('htmlbx').value=document.documentElement.innerHTML;

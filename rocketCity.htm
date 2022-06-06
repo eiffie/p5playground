@@ -4,12 +4,10 @@
 <script id="fboShader" type="x-shader/x-fragment">
 precision mediump float;
 uniform sampler2D fbo;
-uniform float u[8];
-#define iResolution vec2(u[0],u[1])
-#define iTime u[2]
-#define iFrame u[3]
-#define iKey u[4]
-#define iMouse vec3(u[5],u[6],u[7])
+uniform vec2 res;
+uniform float user;
+uniform float key;
+uniform vec3 mouse;
 #define iTimeDelta 0.05
 #define THRUST 0.04*iTimeDelta
 #define ROLL 1.0*iTimeDelta
@@ -21,12 +19,12 @@ uniform float u[8];
 #define DOWN_ARROW 40
 float isInside( vec2 p, vec2 c ) { vec2 d = abs(p-vec2(0.5)-c) - vec2(0.5); return -max(d.x,d.y); } 
 vec4 load(in int re) { 
- return texture2D(fbo, vec2(0.5+float(re),0.5) / iResolution.xy ); 
+ return texture2D(fbo, vec2(0.5+float(re),0.5) / res ); 
 } 
 void store( in int re, in vec4 va, inout vec4 fragColor, in vec2 fragCoord) { 
   fragColor = ( isInside(fragCoord.xy,vec2(re,0.0)) > 0.0 ) ? va : fragColor; 
 }
-bool KeyDown(in int key){return (float(key)==iKey);} 
+bool KeyDown(in int iKey){return (float(iKey)==key);} 
 #define quat vec4
 quat qid(){return quat(0.0,0.0,0.0,1.0);}
 quat qmulq(quat q1, quat q2){//multiply two quats
@@ -61,7 +59,7 @@ void main(){
  if(gl_FragCoord.y>1.0 || gl_FragCoord.x>2.0)discard;
  vec4 pos;
  quat qrot;
- if(iFrame<2.){ 
+ if(user<2.){ 
   pos=vec4(0.1,0.0,0.0,0.01); 
   qrot=normalize(vec4(0.1,0.2,0.3,0.8)); 
  }else{ 
@@ -82,8 +80,8 @@ void main(){
   if(KeyDown(LEFT_ARROW))roll-=ROLL; 
   if(KeyDown(RIGHT_ARROW))roll+=ROLL; 
   vec2 mous=vec2(0.0); 
-  if(iMouse.z>0.0){ 
-   mous.xy=iMouse.xy-.5;
+  if(mouse.z>0.0){ 
+   mous.xy=mouse.xy-.5;
    mous.xy*=mous.xy*mous.xy; //mous.y=-mous.y;
   } 
   quat qp=qpyr(vec3(-mous.y*ROTATE,mous.x*ROTATE,roll));
@@ -96,9 +94,9 @@ void main(){
 <script id="fragShader" type="x-shader/x-fragment">
 precision mediump float;
 uniform sampler2D fbo;
-uniform float u[8];
-#define iResolution vec2(u[0],u[1])
-#define iFrame u[3]
+uniform vec2 res;
+uniform float user;
+
 vec3 Tile(vec3 p){vec3 a=vec3(8.0);return abs(mod(p,a)-a*0.5)-a*0.25;} 
 float DERect(vec4 z,vec3 r){return length(max(abs(z.xyz)-r,0.0))/z.w;} 
 const float mr=0.5, mxr=0.975, scale = 2.52; 
@@ -144,7 +142,7 @@ vec3 Backdrop( in vec3 rd ){
 } 
 
 float rnd; 
-void randomize(in vec2 p){rnd=fract(float(iFrame)+sin(dot(p,vec2(13.3145,17.7391)))*317.7654321);} 
+void randomize(in vec2 p){rnd=fract(user+sin(dot(p,vec2(13.3145,17.7391)))*317.7654321);} 
  
 float ShadAO(in vec3 ro, in vec3 rd){ 
  float t=0.0,s=1.0,d,mn=0.01+0.04*rnd; 
@@ -157,7 +155,7 @@ float ShadAO(in vec3 ro, in vec3 rd){
 } 
  
 vec3 scene(in vec3 ro, in vec3 rd){ 
- float d=DE(ro)*rnd*0.5,t=d,od=1.0,pxl=2.0/iResolution.y; 
+ float d=DE(ro)*rnd*0.5,t=d,od=1.0,pxl=2.0/res.y; 
  vec4 dm=vec4(1000.0),tm=vec4(-1.0); 
  for(int i=0;i<78;i++){ 
   d=DE(ro+rd*t); 
@@ -205,13 +203,13 @@ quat qinv(quat q){return quat(-q.xyz,q.w)/dot(q,q);}//inverse quaternion
 vec3 qmulv(quat q, vec3 p){quat qi=qinv(q),q2=quat(p*qi.w+cross(p,qi.xyz),-dot(p,qi.xyz));
 return q.xyz*q2.w+q2.xyz*q.w+cross(q.xyz,q2.xyz);} 
 vec4 load(in int re) { 
- return texture2D(fbo, vec2(0.5+float(re),0.5) / iResolution.xy ); 
+ return texture2D(fbo, vec2(0.5+float(re),0.5) / res ); 
 }
 void mainImage(out vec4 O, in vec2 U){ 
  randomize(U); 
  vec3 ro=load(0).xyz;
  quat fw=load(1);//normalize(quat(0.1,0.2,0.3,0.4));//load(1);
- vec3 rd=qmulv(fw,normalize(vec3((2.0*U-iResolution.xy)/iResolution.y,1.0)));
+ vec3 rd=qmulv(fw,normalize(vec3((2.0*U-res)/res.y,1.0)));
  O=vec4(scene(ro,rd),1.0);
 }
 void main(){mainImage(gl_FragColor,gl_FragCoord.xy);}

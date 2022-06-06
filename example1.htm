@@ -3,19 +3,18 @@
 <meta charset="utf-8" />
 <script id="fragShader" type="x-shader/x-fragment">
 precision mediump float;
-uniform float u[8]; //u holds required uniforms
-#define rez vec2(u[0],u[1])
-#define time u[2]
-//#define user u[3]   filled by you, not used here
-#define key u[4]
-#define mouse vec3(u[5],u[6],u[7])
+uniform vec2 res;
+uniform float time;
+uniform float user;
+uniform float key;
+uniform vec3 mouse;
 #define RADIUS 0.005
 void main(){//puts a red dot at mouse pointer when mouse down
-  vec2 uv=gl_FragCoord.xy/rez;//displays key presses in blue
+  vec2 uv=gl_FragCoord.xy/res;//displays key presses in blue
   vec4 O=vec4(0);             //and time in green
-  if(mouse.z>0.)O.r=smoothstep(2./rez.y,0.,length(mouse.xy-uv)-RADIUS);
-  if(key>0.)O.b=smoothstep(2./rez.y,0.,abs(key/128.-uv.x)-1./256.);
-  O.g=smoothstep(2./rez.y,0.,abs(time-(uv.x+floor(uv.y*100.))));
+  if(mouse.z>0.)O.r=smoothstep(2./res.y,0.,length(mouse.xy-uv)-RADIUS);
+  if(key>0.)O.b=smoothstep(2./res.y,0.,abs(key/128.-uv.x)-1./256.);
+  O.g=smoothstep(2./res.y,0.,abs(time-(uv.x+floor(uv.y*100.))));
   uv=floor(uv*100.)/100.;//funky pattern
   gl_FragColor=O+dot(uv,uv.yx)*mod(uv.x*uv.y*1097.,.413);
 }

@@ -3,18 +3,12 @@
 <meta charset="utf-8" />
 <script id="fragShader" type="x-shader/x-fragment">
 precision mediump float;
-uniform float u[8];//required
-uniform float U[8];//optional, any size
-#define rez vec2(u[0],u[1])
-#define time u[2]
-#define game u[3]
-#define key u[4]
-#define mouse vec3(u[5],u[6],u[7])
-//paddles, ball and scores
-#define pdl vec2(U[0],U[1])
-#define pdr vec2(U[2],U[3])
-#define bp vec2(U[4],U[5])
-#define score vec2(U[6],U[7])
+uniform vec2 res;
+uniform float time;
+uniform float user;
+uniform float key;
+uniform vec3 mouse;
+uniform vec2 pdl,pdr,bp,score;
 #define RADIUS 0.035
 
 float tube(vec2 pa, vec2 ba){return length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0));}
@@ -47,11 +41,11 @@ float formatInt(vec2 uv, vec2 rect, float num, int spaces){//only good up to 6 s
    return sevenSegment(uv,int(num));
 }
 void main(){
-  vec2 uv=(2.*gl_FragCoord.xy-rez)/rez.y;
+  vec2 uv=(2.*gl_FragCoord.xy-res)/res.y;
   float d=DE(uv);
-  d=smoothstep(2./rez.y,0.,d);
+  d=smoothstep(2./res.y,0.,d);
   gl_FragColor=vec4(d,d,d,1.);
-  uv=gl_FragCoord.xy/rez;
+  uv=gl_FragCoord.xy/res;
   d=formatInt(uv-vec2(0.1,0.9),vec2(0.1,0.05),score.x,2);
   d+=formatInt(uv-vec2(0.8,0.9),vec2(0.1,0.05),score.y,2);
   gl_FragColor=mix(gl_FragColor,vec4(1.0,0.0,0.0,1.0),d);
@@ -59,30 +53,30 @@ void main(){
 </script>
 <script src="WAG.js"></script>
 <script>
-let U={plx:-1.,ply:0.,prx:1.,pry:0.,bx:0.,by:0.,scoreL:0.,scoreR:0.};
+let U={pdl:new V2(-1.,0.),pdr:new V2(1.,0.),bp:V2.c(0.),score:V2.c(0.)};
 let dtx=-0.01,dty=0.004;
 function game(){if(G.paused)return;
-  U.bx+=dtx;U.by+=dty;
-  if(Math.abs(U.bx)>1.){dtx=-dtx;
+  U.bp.x+=dtx;U.bp.y+=dty;
+  if(Math.abs(U.bp.x)>1.){dtx=-dtx;
     if(dtx<0.){
-      if(Math.abs(U.pry-U.by+.05)>0.1){U.scoreL+=1;dty=0.;plAy(1,null);}
-      else {dty=(U.by-U.pry-.05)*.25;plAy(0,{randomize:true,pan:.75});}
+      if(Math.abs(U.pdr.y-U.bp.y+.05)>0.1){U.score.x+=1;dty=0.;plAy(1,null);}
+      else {dty=(U.bp.y-U.pdr.y-.05)*.25;plAy(0,{randomize:true,pan:.75});}
     }else{
-      if(Math.abs(U.ply-U.by+.05)>0.1){U.scoreR+=1;dty=0.;plAy(1,null);}
-      else {dty=(U.by-U.ply-.05)*.25;plAy(0,{randomize:true,pan:-.75});}
+      if(Math.abs(U.pdl.y-U.bp.y+.05)>0.1){U.score.y+=1;dty=0.;plAy(1,null);}
+      else {dty=(U.bp.y-U.pdl.y-.05)*.25;plAy(0,{randomize:true,pan:-.75});}
     }
   }
-  if(Math.abs(U.by)>1.)dty=-dty;
-  if(G.u.key==G.DOWN_ARROW && U.pry>-1.)U.pry-=0.01;
-  if(G.u.key==G.UP_ARROW && U.pry<1.)U.pry+=0.01;
-  U.ply+=(U.by>U.ply?0.01:-0.01);
+  if(Math.abs(U.bp.y)>1.)dty=-dty;
+  if(G.u.key==G.DOWN_ARROW && U.pdr.y>-1.)U.pdr.y-=0.01;
+  if(G.u.key==G.UP_ARROW && U.pdr.y<1.)U.pdr.y+=0.01;
+  U.pdl.y+=(U.bp.y>U.pdl.y?0.01:-0.01);
 }
 
 function ping(k){t=k/24000.;return Math.sin(t*t*2000.)*(1.-t);}
 function pong(k){t=k/24000.;return Math.sin(t*1000.)*(1.-t);}
 
 function setup(){//if the game doesn't check delta time throttle the fps
-  G("glcanvas","fragShader",{onFrame:game,fps:60},U);
+  G("glcanvas","fragShader",{onFrame:game,fps:60,uniform:U});
   togglePause();//sound won't start until user interaction so make a play button
   A([{samps:24000,fill:ping},{samps:24000,fill:pong}]);
 }
