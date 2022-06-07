@@ -89,11 +89,12 @@ To learn more about using <b>WAG</b> check out these examples:<br>
 <a href="example3.htm">BrickOut</a> running an offscreen fbo script to control a game.<br>
 <a href="theramin.htm">Theramin</a> adjusting audio parameters on the fly.<br>
 <a href="angryBee.htm">Angry Bee</a> using the 3D spacial listener.<br>
+<a href="daisies.htm">Euler Daisies</a> drawing directly on the canvas' 2d context.<br>
 <a href="games.htm">Games</a> <a href="artwork.htm">Art Work</a>
 
 </td><td>
 
-<b><div id="WAG">WAG.js (15kb)</div></b> is a minimal Web Audio and Graphics wrapper to handle the
+<b><div id="WAG">WAG.js (14kb)</div></b> is a minimal Web Audio and Graphics wrapper to handle the
 setup and delivery of WEBGL frame buffer objects and WebAudio sound buffers.
 The functions are few and the settings many:
 <ul><li>
@@ -105,7 +106,8 @@ until paused. A detail of the parameters.<br>
 <b>canvasId:</b> The id of a canvas element with width and height defined.
  </li><li>
 <b>fragmentScriptId:</b> the id of a script element containing a fragment shader to
-color the canvas based on gl_FragCoord.xy and uniforms. The built in uniforms are:<br>
+color the canvas based on gl_FragCoord.xy and uniforms or "2D" for stroke/fill ops.
+The built in uniforms are:<br>
   <ul><li>
 <b>uniform vec2 res;</b> =G.u.res the canvas size, all uniforms are optional
   </li><li>
@@ -138,21 +140,15 @@ which can be changed to G.REPEAT and G.LINEAR.
 <b>uniform:</b> an object of {key:value,...} pairs appended to G.u and sent to the GPU. The values can
 be float, float array, or V2,V3,V4 vector objects corresponding to glsl's vec2,3,4.
  </li></ul>
-An example that runs the frame buffer sending an array of float F after manipulating return values
-could look like this:<br>
-G("mycanvas","scrnShader",{fboScript:"fboShader",onFrame:manip,returnPixels:100,uniforms:U}<br>
-uniform float data[400];//in fboShader<br>
-let dat=new Array(400),U={data:dat};//in javascript<br>
-function manip(){for(let i=0;i&lt400;i++)dat[(i+10)%400]=G.r[i];}<br>
 </li></ul><li>
-<b>fullScreen(canvasId):</b> causes the canvas to go fullscreen.
+<b>fullScreen(canvas)</b> causes the canvas to go fullscreen.
 </li><li>
-<b>togglePause():</b> stops drawing and sound until toggled again.
+<b>togglePause()</b> stops drawing and sound until toggled again.
 </li><li>
 <b>mouseDown,Up,Move, KeyDown,Up:</b> overridable functions that set uniform variables
 to user actions.
 </li><li>
-<b>A(soundSettingsObjectArray):</b> The A() setup function creates and fills sound buffers
+<b>A(soundSettingsObjectArray)</b> The A() setup function creates and fills sound buffers
 based on settings supplied in the soundSettingsObjectArray which is an array of objects
 [{},{},...] containing the following fields.
  <ul><li>
@@ -170,7 +166,7 @@ reduce the size of sound effect buffers and fill time by using a slower sampleRa
 <b>echo:</b> [optional] If set to # the buffer will be filled with amp(k)+amp(k-#)/2.
  </li></ul>
 <li>
-<b>plAy(indexOfBuffer,settings):</b> plays the buffer with the given index in the
+<b>plAy(indexOfBuffer,settings)</b> plays the buffer with the given index in the
 soundSettingsObjectArray passed to A(). Settings are optional:<br>
  <ul><li>
 <b>gain:</b> the volume of the buffer 0-inf, 1 is default.
@@ -191,13 +187,17 @@ plAy() returns an object holding the source, plus gain and pan if requested.
 The object is primarily useful on looped sounds to stop, change rate/volume
 or set the position of 3D panned sources.
 </li><li>
-<b>V1, V2, V3, V4</b> float and vector classes implenting most glsl functions:
+<b>V</b> vector/utility class implenting most glsl functions:
 fract, smoothstep, add, sub, mul, mlc, div, dot, mag, crs, nrm, rfl etc.
 Some notes: No operator overloading so functions are methods and static versions.
-To copy a vector use V3.cpy(dst,src) if dst exists or let dst=src.cln();<br>
+To copy a vector use V.cpy(dst,src) if dst exists or let dst=src.cln();<br>
 v.fnc(myFunction) runs any x=f(x) function on each field. v.swz(2,1,1) allows you
-to change the order/repeat values. V4 also implements quaternions useful in
-flight controls.
+to change the order/repeat values. V also implements quaternions useful in
+flight controls. V handles vec2, vec3 and vec4 fields (x,y,z,w). 
+To reduce a vec4 to vec2 use v=v.swz(0,1) or in reverse v=v.swz(0,1,0,1)
+</li><li>
+<b>CamStart(video)</b> Starts a camera in the video element.
+</li><li>
+<b>MicStart(destNode)</b> Starts a microphone connected to the destination. (null=speakers)
 </li></ul>
-
 </td></tr></table></body></html>

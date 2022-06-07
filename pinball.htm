@@ -210,7 +210,7 @@ function setup(){
 function draw(){if(G.paused)return;
   if(G.u.key==G.LEFT_ARROW)iLeftK=1.;else iLeftK=0.;
   if(G.u.key==G.RIGHT_ARROW)iRightK=1.;else iRightK=0.;
-  if(G.u.mousedown){if(G.u.mousex<.5)iLeftM=1.;else iRightM=1.;}else iLeftM=iRightM=0.;
+  if(G.u.mouse.z>0){if(G.u.mouse.x<.5)iLeftM=1.;else iRightM=1.;}else iLeftM=iRightM=0.;
   if(iLeft==0. && iLeftK+iLeftM>0.)plAy(3,null);
   if(iRight==0. && iRightK+iRightM>0.)plAy(3,null);
   iLeft=iLeftK+iLeftM;iRight=iRightK+iRightM;
@@ -219,8 +219,8 @@ function draw(){if(G.paused)return;
 }
 </script></head>
 <body onload="setup();" style="font-family:Verdana;"><b>Pinball</b> <span id="score">Score:0 Balls:3</span>
-<table><tr valign="top"><td><div id="c" style="touch-action: none;">
-<canvas id="cnv" width="512" height="360"></canvas></div>
+<table><tr valign="top"><td>
+<canvas id="cnv" width="512" height="360"></canvas><br>
 <button id="play" onclick="togglePause();this.textContent=G.paused?'Resume':'Pause';">Play</button>
 <button onclick="fullScreen(cnv);">FullScreen</button>
 </td><td>

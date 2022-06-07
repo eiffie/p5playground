@@ -53,7 +53,7 @@ void main(){
 </script>
 <script src="WAG.js"></script>
 <script>
-let U={pdl:new V2(-1.,0.),pdr:new V2(1.,0.),bp:V2.c(0.),score:V2.c(0.)};
+let U={pdl:new V(-1.,0.),pdr:new V(1.,0.),bp:V.c2(0.),score:V.c2(0.)};
 let dtx=-0.01,dty=0.004;
 function game(){if(G.paused)return;
   U.bp.x+=dtx;U.bp.y+=dty;
@@ -67,8 +67,8 @@ function game(){if(G.paused)return;
     }
   }
   if(Math.abs(U.bp.y)>1.)dty=-dty;
-  if(G.u.key==G.DOWN_ARROW && U.pdr.y>-1.)U.pdr.y-=0.01;
-  if(G.u.key==G.UP_ARROW && U.pdr.y<1.)U.pdr.y+=0.01;
+  if((G.u.key==G.DOWN_ARROW || (G.u.mouse.z && 2*G.u.mouse.y-1<U.pdr.y)) && U.pdr.y>-1.)U.pdr.y-=0.01;
+  if((G.u.key==G.UP_ARROW || (G.u.mouse.z && 2*G.u.mouse.y-1>U.pdr.y)) && U.pdr.y<1.)U.pdr.y+=0.01;
   U.pdl.y+=(U.bp.y>U.pdl.y?0.01:-0.01);
 }
 
@@ -87,8 +87,8 @@ function loadme(){
 </script></head>
 <body onload="loadme();setup();" bgcolor="gainsboro" style="font-family:sans-serif;">
 <b>Pong:</b> Use the arrow keys to play.
-<table><tr valign="top"><td><div style="touch-action: none;">
-<canvas id="glcanvas" width="512" height="320"></canvas></div>
+<table><tr valign="top"><td>
+<canvas id="glcanvas" width="512" height="320"></canvas><br>
 <button onclick='togglePause();this.textContent=G.paused?"Resume":"Pause";'>Play</button>
 <button onclick='fullScreen(document.getElementById("glcanvas"));'>Full Screen</button>
 </td><td>

@@ -92,15 +92,15 @@ function freq(n){
 }
 function Sound(time){
   let t=time*16.,a=0.;
-  t*=1.+Math.pow(V1.fract(t/8.)*V1.fract(t/2.),15.+20.*V1.fract(t/256.));
+  t*=1.+Math.pow(V.fract(t/8.)*V.fract(t/2.),15.+20.*V.fract(t/256.));
   let n=0,d=32.;
   for(let i=0.;i<3.;i+=1.){
     n+=N[Math.floor((t/d)%8)];
     let f=i+1.;
-    a+=V1.fract(f*.3+freq(n)*t*f*6.6)-.5;
+    a+=V.fract(f*.3+freq(n)*t*f*6.6)-.5;
     d/=4;
   }
-  let v=a+(V1.fract(a*7./3.)-.5)*.75;
+  let v=a+(V.fract(a*7./3.)-.5)*.75;
   return v*.1;
 }
 function sEq(a,b){return !(a<b || a>b);}
@@ -120,7 +120,7 @@ function play(){
   else {togglePause();btnPlay.textContent=(G.paused?'>':'||');}
 }
 function volAdjust(){if(G.paused || !src)return;
-  src.gain.gain.value=V1.saturate(G.u.time*.1)*V1.saturate(1.-(G.u.time-50.)*.05);
+  src.gain.gain.value=V.saturate(G.u.time*.1)*V.saturate(1.-(G.u.time-50.)*.05);
 }
 function setup(){
   G("glcanvas","fragShader",{onFrame:volAdjust});

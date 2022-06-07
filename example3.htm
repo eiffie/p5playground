@@ -39,8 +39,8 @@ void main(){
      if(L1.x>1.){L1.x=1.;L1.z=-abs(L1.z);}
      if(L1.y>1.){L1.y=1.;L1.w=-abs(L1.w);}
      if(L1.y<0.){L2.w-=1.;L1.xy=vec2(.5,.1);L1.zw=vec2(0,1);}
-     if(key==LEFT_ARROW && L2.x>0.)L2.x-=dt*SPD;
-     if(key==RIGHT_ARROW && L2.x<1.)L2.x+=dt*SPD;
+     if((key==LEFT_ARROW || (mouse.z>0. && mouse.x<L2.x)) && L2.x>0.)L2.x-=dt*SPD;
+     if((key==RIGHT_ARROW || (mouse.z>0. && mouse.x>L2.x)) && L2.x<1.)L2.x+=dt*SPD;
      if(abs(L1.y-.065)<.01 && abs(L1.x-L2.x)<.05){
        L1.zw=normalize(L1.xy-vec2(L2.x,.0));L1.w=abs(L1.w);L2.w=-L2.w;}
      float a=texture2D(fbo,L1.xy).a;
@@ -114,8 +114,7 @@ function loadme(){
 </script></head>
 <body onload="loadme();setup();" bgcolor="gainsboro" style="font-family:sans-serif;">
 <b>BrickOut:</b> finally an fbo example.<table><tr valign="top"><td> 
-<div style="touch-action: none;">
-<canvas id="glcanvas" width="512" height="320"></canvas></div>
+<canvas id="glcanvas" width="512" height="320"></canvas><br>
 <button onclick='togglePause();this.textContent=G.paused?"Resume":"Pause";'>Play</button>
 <button onclick='fullScreen(document.getElementById("glcanvas"));'>Full Screen</button>
 Press SPACE to restart.</td><td>

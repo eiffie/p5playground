@@ -1,0 +1,41 @@
+<head><title>Plato's Solids</title>
+<script src="WAG.js"></script>
+<script>
+let verts=[],VL;
+function setup(){
+  G("c","2D",{onFrame:draw,fps:30});
+  G.d.fillStyle='rgba(200,200,200,.03)';
+  G.d.strokeStyle='#404040';
+}
+function draw(){
+  G.d.fillRect(0,0,G.c.width,G.c.height);
+  VL=6*Math.floor(Math.exp((G.u.user/1000)%2)-.5);
+  if(VL<6)VL=4;G.d.beginPath();
+  while(verts.length>VL)verts.pop();
+  while(verts.length<VL)verts.push(new V(.5-Math.random(),.5-Math.random(),.5-Math.random()));
+  for(let i=0;i<VL;i++){
+    let d=100.,k=0;
+    for(let j=0;j<VL;j++)if(i!=j){
+      let tmp=V.sub(verts[i],verts[j]);
+      let r=tmp.mag();//+V1.fract(i*G.u.user*0.001)*0.01;
+      if(r<d){d=r;k=j;}
+    }
+    let W2=G.c.width/2;
+    G.d.moveTo(W2+W2*verts[i].x,W2+W2*verts[i].y);
+    G.d.lineTo(W2+W2*verts[k].x,W2+W2*verts[k].y);
+    let tmp=V.sub(verts[i],verts[k]);
+    tmp.div(V.c3(Math.max(d*d*50.,0.01)));
+    verts[i].add(tmp);
+    verts[i].nrm();//div(Math.max(verts[i].mag(),0.01));
+  }G.d.stroke();
+  G.u.user+=1;
+}
+function loadme(){
+  document.getElementById('htmlbx').value=document.documentElement.innerHTML;
+}
+</script>
+</head>
+<html><body onload="loadme();setup();"><canvas id="c" width="320" height="320"></canvas>
+<textarea id="htmlbx" cols="80" rows="15" wrap="off" spellcheck="false"
+ style="font-family: Lucida Console;"></textarea>
+ </body></html>

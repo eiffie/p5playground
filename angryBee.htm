@@ -58,19 +58,19 @@ void main(){
 </script>
 <script src="WAG.js"></script>
 <script>
-let U={B1:V3.c(0.),B2:V3.c(0.)};
+let U={B1:V.c3(0.),B2:V.c3(0.)};
 var rp=null;//an object returned from plAy() that contains source and pan
-function path(a){return V3.fnc(V3.mlc(new V3(1.,.91,.73),a),Math.sin);}
-function frame(){if(G.paused || !rp)return;//we use it to see if sound is activated
+function path(a){return V.fnc(V.mlc(new V(1.,.91,.73),a),Math.sin);}
+function frame(){if(!rp)return;//we use it to see if sound is activated
   let a=G.u.time*2.;
-  V3.cpy(U.B1,path(a));
+  V.cpy(U.B1,path(a));
   a-=.03;
-  V3.cpy(U.B2,path(a));
+  V.cpy(U.B2,path(a));
   rp.pan.positionX.value=U.B1.x*20.; //and to control the 3D pan settings
   rp.pan.positionY.value=U.B1.y*20.;   
   rp.pan.positionZ.value=U.B1.z*20.;
-  let d1=V3.dot(U.B1,U.B1);
-  let d2=V3.dot(U.B2,U.B2);
+  let d1=V.dot(U.B1,U.B1);
+  let d2=V.dot(U.B2,U.B2);
   let d=1.+d1-d2;
   rp.source.playbackRate.value=d;
 }

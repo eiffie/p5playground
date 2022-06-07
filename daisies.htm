@@ -1,0 +1,39 @@
+<head><title>Euler Daisies</title>
+<script src="WAG.js"></script>
+<script>
+function setup(){
+ G("cnvs","2D",{onFrame:draw,fps:60});
+}
+function draw(){eval(txtDraw.value);}
+</script></head>
+<html><body onload='setup();' style="font-family:sans-serif;">
+<b>Euler Daisies:</B> euler spirals with a twist<br>
+<canvas id="cnvs" width="320" height="320"></canvas>
+<textarea id="txtDraw" cols="80" rows="15" wrap="off" spellcheck="false" 
+ autocorrect="off" style="font-family:Lucida Console;">
+function newDaisy(){
+  G.d.fillStyle="#FFFFFF";G.d.fillRect(0,0,G.c.width,G.c.height);G.d.fill();
+  let r=128+V.rndi(127),g=V.rndi(192),b=V.rndi(255);
+  G.d.strokeStyle=V.rgb(r,g,b);
+  G.d.shadowOffsetY=1;G.d.shadowBlur=2;G.d.shadowColor="#000000";
+  draw.i=0.;draw.n+=1;
+  draw.x=draw.y=draw.ox=draw.oy=.5*G.c.width;
+  draw.m=255;draw.k=draw.n;g=draw.m%draw.k;
+  while(g>0){draw.m=draw.k;draw.k=g;g=draw.m%draw.k;}//find gcd
+  g=draw.k;draw.m=255/g;draw.k=draw.n/g;
+  G.d.moveTo(draw.ox,draw.oy);
+}
+if(G.u.user<2){//initial setup
+  draw.n=0;newDaisy();G.u.user=2;
+}
+var angle=2.*Math.PI*((((draw.i*(draw.i-1./sld.value))%draw.m)*draw.k)%draw.m)/draw.m;
+draw.x+=8.*Math.cos(angle);draw.y+=8.*Math.sin(angle);
+let tx=draw.x*.7+draw.ox*.3,ty=draw.y*.7+draw.oy*.3;
+G.d.beginPath();G.d.moveTo(draw.ox,draw.oy);G.d.lineTo(tx,ty);G.d.stroke();
+draw.ox=draw.x;draw.oy=draw.y;
+if(draw.i>draw.m*sld.value)newDaisy();
+else draw.i+=1.;
+</textarea><br>
+<button id='btnEval' onclick='G.u.user=0;'>Run</button>
+<input id='sld' type='range' min='2' max='9' step='1' value='5'>petals:</range>
+</body></html>

@@ -1,0 +1,65 @@
+<html><head><title>Orbit Tracker</title>
+<script src="WAG.js"></script>
+<script>
+var ox,oy;
+function setup(){
+ G("c","2D",{onFrame:draw});
+ ox=oy=G.c.width/2;
+ G.d.fillStyle='#FFFFFF';
+ G.d.strokeStyle='#002060';
+ G.d.shadowOffsetY=1;
+ G.d.shadowBlur=2;
+ G.d.shadowColor='#000000';
+}
+function draw(){eval(txtDraw.value);}
+</script></head>
+<body onload="setup();" style="font-family:sans-serif;">
+<b>Orbit Tracker:</b> setup and draw<br>
+<table><tr valign="top"><td>
+<canvas id="c" width="320" height="320"></canvas>
+<textarea id="txtDraw" cols="40" rows="12" wrap="off" spellcheck="false" 
+ autocorrect="off" style="font-family:Lucida Console;">
+let angle=2.*Math.PI*G.u.user/127;
+let x=.5*G.c.width,y=.5*G.c.height;
+let s=.25*G.c.width,scl=.3;
+for(let n=0;n<4;n++){
+  x+=Math.cos(angle)*s;
+  y+=Math.sin(angle)*s;
+  s*=scl;angle/=scl;
+}
+if(G.u.user>1){G.d.beginPath();G.d.moveTo(ox,oy);G.d.lineTo(x,y);G.d.stroke();}
+else G.d.fillRect(0,0,G.c.width,G.c.height);
+ox=x;oy=y;G.u.user+=1;
+</textarea><br>
+<button id='btnEval' onclick='G.u.user=0;'>Run</button>
+</td><td>
+So far we have only implemented 1 function. Now we will do both setup and draw.
+At this point we need to go over the 2 different ways p5 is instantiated.
+Normally you create script tags for p5.min.js and your code containing setup and
+draw functions. p5 automatically loads those functions from the window object. 
+This is called a global instance. There can only be 1 global instance per browser
+frame. The other method when the code isn't available at page load or you need
+multiple instances per web page or you need exact placement on the page
+is to wrap the preload, setup and draw functions
+in a sketch closure and call the p5 constructor with it and the html element
+that will contain the canvas. If you look at the source for this page at
+the top you see a function call runp5. It isn't long but it does alot. First
+we remove any running instances of p5. Then create a sketch closure which is
+a function that sets the preload, setup and draw functions. We set the setup
+and draw function to evaluate the textarea using javascript's eval() and html's
+textarea.value property. This makes it easier to use 2 textareas 1 for each
+function. Otherwise you could parse the textarea code into 2 functions but that
+may be misleading since there is no room for global variables 
+(vars defined outside of functions) when using a sketch closure. Instead we
+will pass variables between our setup and draw function using function properties.
+To create a function property you just use it. For example setup.a=[1,2,3]
+creates an array  in the function setup that can be used in draw as setup.a[0].
+<br><br>
+But this example is much simpler. What does it look like when you trace the
+path of objects in space orbiting stars, planets and moons. Well not like this
+but the idea is the same. Things get complex very quickly. Try different values
+for scl. The radius shrinks and the angle speeds up at each iteration.
+When you think you have it figured out which values give stable orbits and which
+are unstable try .358256 or .390381! Now THAT is order from chaos.
+</td></tr></table>
+</body></html>

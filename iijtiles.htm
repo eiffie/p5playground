@@ -1,0 +1,45 @@
+<html><head><title>(i*i)%j tiles</title>
+<script src="WAG.js"></script>
+<script>
+function setup(){G("cnvs","2D",{onFrame:draw,fps:1});G.d.fillStyle='#3F3F3F';G.d.fillRect(0,0,320,320);}
+function draw(){eval(txtDraw.value);}
+</script></head>
+<body onload="setup();" style="font-family:sans-serif;">
+<b>(i*i)%j Tiles:</B> easy pattern<br><table><tr valign="top"><td>
+<canvas id="cnvs" width="320" height="320"></canvas>
+<textarea id="txtDraw" cols="40" rows="15" wrap="off" spellcheck="false" 
+ autocorrect="off" style="font-family:Lucida Console;">
+for(let y=0;y<G.c.height;y+=4)for(let x=0;x<G.c.width;x+=4){
+  let x2=Math.floor(x/4),y2=Math.floor(y/4),j=51;
+  x2=(x2*x2)%j;y2=(y2*y2)%j;
+  let c=(x2*y2*G.u.user)%j,
+    cr=255*Math.abs(Math.sin(c)),
+    cg=255*Math.abs(Math.sin(c+.4)),
+    cb=255*Math.abs(Math.sin(c+1.2));
+  G.d.fillStyle=V.rgb(cr,cg,cb);
+  G.d.fillRect(x,y,3,3);
+}
+G.d.fill();
+G.u.user+=1;
+</textarea><br>
+<button id='btnEval' onclick='G.u.user=0;'>Run</button></td><td>
+Behind the magic of Euler Spirals is an even simpler formula (i*i)%j.
+Remember the formula for the angle was i*(i+1)*c/2 and that (i+1) could
+be changed (i+1/p) to produce petals. What if p was infinite? We get (i*i)*C
+where C=c/2. But then we use the angle in trig functions which take the
+modulus of the angle by 2*PI. What if we simply take (i*i)%j where j is
+some constant? Its easy to see the value i*i increases exponentially until
+it hits j but then what? Would you believe it reverses its steps making a
+perfect reflection. We will put our good fortune to use with (i*i)%j tiles.
+<br><br>
+So far our animations have run as fast as possible. This one
+we slow down by calling frameRate(1) in the small setup script in the html
+document. View the documents source and look at the top for the runp5() function.
+<br><br>
+Try other values for j besides 51. What are the differences between even
+and odd values? Prime and not prime? Have you noticed you can edit on the
+fly and see changes instantly since the draw function is defined as
+eval(txtDraw.value). This isn't such a good idea. It would be better
+to call noLoop() when keypresses are made. noLoop() stops the draw
+function from being called after the next execution.
+</td></tr></table></body></html>

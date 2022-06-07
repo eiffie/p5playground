@@ -1,0 +1,26 @@
+<html><head><title>Euler Doodles</title>
+<script src="WAG.js"></script>
+<script>
+let W=400,H=400,angle=0.,x=0.,y=0.,ox=0.,oy=0.,j=257,i=0,n=1;
+function setup(){
+  x=y=ox=oy=.5*W-7.5;
+  G('c','2D',{onFrame:draw});
+  G.d.fillStyle='#000014';
+  G.d.strokeStyle='#FF7F3F';
+  G.d.shadowOffsetY=1.;
+  G.d.shadowBlur=2.;
+  G.d.shadowColor='#000000';
+}
+function draw(){
+  angle=2.*Math.PI*((((((i*i)%j)*i)%j)*n)%j)/j;
+  x+=15.*Math.cos(angle);y+=10.*Math.sin(angle);
+  G.d.beginPath();G.d.moveTo(ox,oy);G.d.lineTo(x,y);G.d.stroke();
+  ox=x;oy=y;
+  if(i>j){
+    G.d.strokeStyle=V1.rgb(128+V.rndi(127),V.rndi(127),V.rndi(63));
+    i=0;n+=1;angle=0.;x=y=ox=oy=.5*W;
+  }else i++;
+}
+</script></head>
+<body onload='setup();'>Euler Doodles 2*PI*(i*i*i)%j
+<canvas id='c' width='400' height='400'></canvas></body></html>

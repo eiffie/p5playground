@@ -1,0 +1,125 @@
+<html><head><title>DCT codec</title>
+<script src="WAG.js"></script>
+<script>
+//Oooo---- The o's are 3 bit samples, O is 4 bits.
+//ooo----- The min and max for each cell position
+//oo------ over the image is saved in floats.
+//o-------
+//-------- Original was 20480 bytes.
+//-------- Compressed to 1360 bytes.
+//--------
+//--------
+let DCT=[//320 integers of 31 bits each with 4&3 bit samples, 10 cells of 8x8
+920360368,920360368,920359344,686109203,76632379,916157899,648246730,345740745, 
+651916870,652440004,652441153,920360368,920360368,920360368,920360368,920360368, 
+920360368,920360368,919891617,916607403,916690509,916166220,920359371,916682186, 
+1457239622,920876484,920876609,920352320,920360368,920360368,920360368,920360368, 
+920360368,920360368,920351491,920351165,920819149,911979066,883200444,618353098, 
+383473110,651335234,916156738,920884800,920360368,920360368,920360368,920360368, 
+920360368,920360368,648245123,920359372,954495422,379803100,953848378,1415362108, 
+623080026,110859861,920359362,916682176,920360368,916157872,920352320,920360368, 
+920360368,920360368,920358659,916164043,920359231,953906638,1221179206,647720236, 
+382375499,1491293783,1721464385,920360368,920360368,920352417,920352465,920360368, 
+920360368,920360368,920358787,920350267,1188794815,920884686,914714582,1402032555, 
+333681114,467433043,119764400,651916864,920360368,920817200,916690497,920360368, 
+920360368,920360368,920875907,920883916,920351167,916157903,586830553,417191340, 
+379811278,850081258,684432947,920352320,920360368,920351280,916165184,920360368, 
+920360368,885928610,1692930729,685470156,920883647,920360383,681342302,1094218439, 
+882765243,1424792892,158488149,685995584,920360368,920360368,920360368,920360368, 
+920360368,115494920,1759668796,651924045,953913791,652449215,1188795854,920417738, 
+452553655,2266540,882545272,920884800,920360368,920360368,920360368,920360368, 
+918833953,678014283,725464363,1188787773,920351167,920352207,1457223244,1154709051, 
+677073342,614094172,1227576678,920884800,920360368,920360368,652439984,920360368, 
+916681603,653484281,883204155,648254893,920360383,920360383,1188853199,1898591692, 
+784462522,1151635791,1149931897,920352304,920360368,920876464,920286657,920360368, 
+647732882,987140155,1384721466,1222350380,920884687,1222865343,920360383,915526123, 
+417642067,1226027272,921399800,920352320,920359344,416969136,1188795824,920360368, 
+915642002,923515272,915648731,652449323,916157903,617788876,186905272,1916122869, 
+919836080,659844869,1218671852,618887744,920360368,685551040,920360368,920360368, 
+887787056,592885270,1183478217,883144106,915191357,1218612828,1085018698,2053714389, 
+576017060,1087517354,1456705913,580018374,143824450,878933440,920359344,920360368, 
+920360368,920760196,1151638232,919833143,883661227,953522634,933279302,468144820, 
+536890683,1150989003,920362599,949717157,916689363,920360368,920360368,920360368, 
+920360368,921349793,886806087,1189778999,77238698,912552397,1184591436,1994552779, 
+316389818,1188793031,916756038,919768245,1189319234,920352320,920360368,920360368, 
+920360368,920359344,920947877,417043895,1218687417,887338425,1487632825,1755025863, 
+621504967,1188787895,1487641013,652447172,920884674,920352320,920360368,920360368, 
+920360368,920360368,952810003,648189494,912045367,1222350261,413381047,1184674502, 
+1424209479,1491844533,1184536004,916688323,920360512,920884784,920360368,920360368, 
+920360368,920360368,887788080,1185198531,1184536115,647730627,584298946,1457238450, 
+886805058,647148978,647737793,920359360,920360368,920360368,920360368,920360368, 
+920360368,920360368,920360368,920884784,920883760,685478320,614176193,920360384, 
+920360368,920360368,920359344,920360368,920360368,920360368,920360368,920360368];
+let mn=[0.,-.827,-.399,-.278,-.652,-.334,-.154,-.342,-.16,-.123];
+let mx=[3.984,.859,.414,.166,.639,.451,.165,.532,.213,.171];
+function setup(){eval(txtCode.value);}
+</script></head>
+<body onload="setup();" style="font-family:sans-serif;">
+<b>DCT codec:</B> easy decompress<br><table><tr valign="top"><td>
+<canvas id="c" width="256" height="160"></canvas>
+<textarea id="txtCode" cols="40" rows="25" wrap="off" spellcheck="false" 
+ autocorrect="off" style="font-family:Lucida Console;">
+let W=128,H=160,N=8;
+G("c","2D");
+let img=G.d.createImageData(W*2,H);
+for(let Y=0;Y<20;Y++)for(let X=0;X<16;X++){
+  let k=DCT[Y*16+X],c=0.;
+  for(let x=0;x<N;x++)for(let y=0;y<N;y++){//8x8
+    if(k==920360368)c=0;//just black!
+    else{//decompress
+      let px=Math.PI/8.*(x+.5),py=Math.PI/8.*(y+.5);
+      let csx=Math.cos(px),csy=Math.cos(py);
+      let m=[.25,.5*csx,.5*Math.cos(2.*px),.5*Math.cos(3.*px),
+       .5*csy,csx*csy,Math.cos(2.*px)*csy,
+       .5*Math.cos(2.*py),csx*Math.cos(2.*py),.5*Math.cos(3.*py)];
+      c=(k%16)*(mx[0]-mn[0])/(15.*4.);
+      for(let j=1;j<10;j++)c+=(((k>>(j*3+1))%8)*(mx[j]-mn[j])/7.+mn[j])*m[j];
+    }//transformed 3 bits to min thru max based on cell position
+    let px=X*N+x,py=H-1-Y*N-y; c*=255;
+    let i=128-Math.floor(Math.max(5-(Math.abs(75-px)+Math.abs(95-py))*.1,0)); py*=W*2;
+    for(let n=0;n<3;n++)img.data[(px+py)*4+n]=c;img.data[(px+py)*4+3]=255;
+    for(let n=0;n<3;n++)img.data[(px+i+py)*4+n]=c;img.data[(px+i+py)*4+3]=255;
+    for(let n=0;n<3;n++)img.data[(px+i+1+py)*4+n]=c;img.data[(px+i+1+py)*4+3]=255;
+  }
+}//move array back to image
+G.d.putImageData(img,0,0);
+</textarea><br>
+<button id='btnEval' onclick='setup();'>Run</button></td><td>
+Loading images in p5 is easy. A quick example using function properties looks like this.<br>
+<code>function preload(){preload.img=loadImage('my.jpg');}<br>
+function setup(){image(img, 0, 0);}</code><br>
+Too easy right? Well its time to make things difficult by challenging ourselves to
+store my.jpg in our own format. I'll use an image of my beloved uncle as an example.
+First we want to compress the crap out of it by using a discrete cosine transform 
+(DCT) to sort the data into whats really needed versus what can be tossed out.
+DCT is a simple transform that allows us to remove high or low frequency data which
+isn't perceptable. How simple? How about 4 lines of glsl code to transform video!<br>
+<code style="white-space:nowrap;">
+for(float z=.5;z&ltN;z+=1.)for(float y=.5;y&ltN;y+=1.)for(float x=.5;x&ltN;x+=1.){<br>
+&nbsp  vec3 pn=vec3(x,y,z),cs=cos(pi/N*pn*mod(P,vec3(N)));<br>
+&nbsp  O+=texture(TEX,(floor(P/N)+pn)/RES).r*cs.x*cs.y*cs.z;}<br>
+O*=8./(N*N*N);<br>
+//--------------now the inverse------------<br>
+for(int z=0;z&ltN;z++)for(int y=0;y&ltN;y++)for(int x=0;x&ltN;x++){<br>
+&nbsp  vec3 pn=vec3(x,y,z),cs=cos(pi/N*pn*(mod(p,vec3(N))+vec3(.5)));<br>
+&nbsp  if(x==0)cs.x=0.5;if(y==0)cs.y=0.5;if(z==0)cs.z=0.5;<br>
+&nbsp  O+=texture(TEX,(floor(P/N)+pn)/RES).r*cs.x*cs.y*cs.z;}
+</code><br>
+N=window size (usually 8), P=pixel coord to transform P.z=frame, O=output transformed data,
+TEX=original image as texture input, RES=image vec3(width,height,frame).
+We find the sum of the image data multiplied by the cosines of pi/N*(window voxel coord)*(video voxel coord)
+multiplied together. Yes a bit confusing but basically adding up the contribution
+of each frequency. When this is done we notice low frequency data is in the lower
+corner of the square(2d)/cube(3d) so for a blurry image/video we only need to keep those.
+This will make the inverse transform (iDCT) quick and fairly easy.
+For this image I chose N=8 and a frequency cutoff of x+y>3.
+To further compress the remaining data we quantize it shoving it into 3 bits. Actually
+the 1st cell is stored in 4 bits for a total of 31 bits per 8x8 window or 512 bits.
+3 bits isn't much room so we also store the min and max values for each cell position
+that we are keeping so 20 more floats.<br><br>
+Although p5 has a point(x,y) drawing routine it uses smoothing for nice plotting.
+We just want to set the pixel directly so we load the pixels into an array called
+pixels with loadPixels(). We can then work with the pixel[] array and save it when
+done with updatePixels().<br><br>
+Did you spot the illusion?
+</td></tr></table></body></html>
