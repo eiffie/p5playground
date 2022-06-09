@@ -1,0 +1,96 @@
+<html><head><title>Coins</title>
+<script src="WAG.js"></script>
+<script>
+const R=50,W=500,H=500,DX=R/2,DY=R*1.76/2;
+var MX,MY,PX,PY,TX,TY,mx,my,iTurns,iShape=0,iBest,iSel=-1,mo=0;
+function newGame(){
+  MX=[6,8,10,7,9,11]; MY=[4,4,4,5,5,5];//7,7 8,6 9,5 10,4 6,4 11,7
+  iTurns=0;
+  if(iShape==0){     PX=[6,7,9,10,7,9];  PY=[4,3,3,4,5,5];TX=[6,7,9,10,7,9];  TY=[4,3,3,4,5,5];iBest=3;s="Donut";}
+  else if(iShape==1){PX=[0,2,4,6,8,10];  PY=[4,4,4,4,4,4];TX=[1,3,5,7,9,11];  TY=[5,5,5,5,5,5];iBest=6;s="Line";}
+  else if(iShape==2){PX=[10,9,10,9,10,9];PY=[0,1,2,3,4,5];TX=[11,9,8,6,5,3];  TY=[5,5,4,4,3,3];iBest=5;s="Rope";}
+  else if(iShape==3){PX=[2,3,5,6,8,9];   PY=[4,5,5,4,4,5];TX=[6,7,9,10,12,13];TY=[4,5,5,4,4,5];iBest=3;s="Inchworm";}
+  else if(iShape==4){PX=[4,6,8,5,9,9];   PY=[4,4,4,5,3,5];TX=[7,7,8,10,11,12];TY=[5,3,4,4,5,4];iBest=2;s="Dog";}
+  else if(iShape==5){PX=[6,8,10,7,9,6];  PY=[4,4,4,5,3,2];TX=[7,7,8,9,10,11]; TY=[5,3,6,5,4,5];iBest=3;s="Space Invader";}
+  else if(iShape==6){PX=[5,4,5,9,10,9];  PY=[3,4,5,3,4,5];TX=[7,6,7,11,12,11];TY=[5,4,3,5,4,3];iBest=5;s="Parens";}
+  else if(iShape==7){PX=[0,1,2,5,8,11];  PY=[2,1,2,3,4,5];TX=[11,8,5,2,1,0];  TY=[5,4,3,2,1,2];iBest=9;s="Asteroids";}
+  else if(iShape==8){PX=[3,6,5,5,7,9];   PY=[3,4,3,5,5,5];TX=[7,9,11,8,7,5];  TY=[5,5,5,4,3,3];iBest=3;s="Swimmer";}
+  else if(iShape==9){PX=[9,8,9,8,6,5];   PY=[5,4,3,2,2,3];TX=[11,9,8,6,5,6];  TY=[5,5,4,4,5,6];iBest=3;s="Question";}
+  else if(iShape==10){PX=[5,7,9,5,7,9];  PY=[5,5,5,3,3,3];TX=[7,9,11,7,9,11];TY=[5,5,5,3,3,3];iBest=5;s="Equals";}
+  else if(iShape==11){PX=[5,6,7,8,4,9];  PY=[5,4,3,2,2,5];TX=[7,8,9,10,6,11];TY=[7,6,5,4,4,7];iBest=6;s="Percent";}
+  trn.textContent=iTurns;trn.style.color='green';
+  best.textContent=iBest;
+  ttl.textContent=s;
+}
+function err(e){errs.textContent=e==0?"":e==1?"Sliding over coins not allowed!":
+                                         e==2?"Not touching exactly 2!":
+                                              "YOU MATCHED BEST SCORE!";}
+function turn(){
+  iTurns++;trn.textContent=iTurns;
+  if(iTurns==iBest){
+    let n=0;
+    for(let i=0;i<6;i++)for(j=0;j<6;j++)if(MX[i]==TX[j] && MY[i]==TY[j])n++;
+    if(n<6){n=0;for(let i=0;i<6;i++)for(j=0;j<6;j++)if(MX[i]==17-TX[j] && MY[i]==9-TY[j])n++;}
+    if(n==6){next();err(3);return;}
+    trn.style.color='red';
+  }
+}
+function sx(x){return x*DX+DX;}
+function sy(y){return y*DY+DY;}
+function testOverlap(x, y){
+  for(let i=0;i<6;i++)if(i!=iSel && x==MX[i] && y==MY[i])return 1;
+  return 0;
+}
+function findxy(x,y){for(let i=0;i<6;i++)if(x==MX[i] && y==MY[i])return i;return -1;}
+function testTouch(x,y){
+  let tch=0,tx=x,ty=y,i=findxy(tx,ty);
+  if(i>-1 && i!=iSel)return 0;//on top of another!
+  tx-=2;i=findxy(tx,ty);if(i>-1 && i!=iSel)tch++;
+  tx+=4;i=findxy(tx,ty);if(i>-1 && i!=iSel)tch++;
+  tx-=3;ty-=1;i=findxy(tx,ty);if(i>-1 && i!=iSel)tch++;
+  tx+=2;i=findxy(tx,ty);if(i>-1 && i!=iSel)tch++;
+  ty+=2;i=findxy(tx,ty);if(i>-1 && i!=iSel)tch++;
+  tx-=2;i=findxy(tx,ty);if(i>-1 && i!=iSel)tch++;
+  if(tch!=2)err(2);
+  return tch;
+}
+function coin(x,y){
+  G.d.beginPath();G.d.arc(x,y,DX,0.,Math.PI*2);G.d.fill();
+}
+function setup(){
+  newGame();
+  G('c','2D',{onFrame:draw});
+  G.d.shadowOffsetY=1;G.d.shadowOffsetY=2;
+  G.d.shadowColor='#1f1f1f';
+}
+function draw(){
+  var ox=Math.floor(G.u.mouse.x*G.c.width),oy=Math.floor((1.-G.u.mouse.y)*G.c.height);
+  var x=Math.floor(ox/DX-.5),y=Math.floor(oy/DY-.5);
+  if(((x%2)<.5)^((y%2)<.5))x-=1;
+  if(G.u.mouse.z>0){
+   if(mo>0){if(testOverlap(x,y)==0){mx=ox;my=oy;err(0);}else {iSel=-1;err(1);}}
+   else {iSel=findxy(x,y);mx=ox;my=oy;if(iSel>-1)mo=1;}
+  }else if(mo>0){
+    if(iSel>-1)if(testTouch(x,y)==2 && !(MX[iSel]==x && MY[iSel]==y)){MX[iSel]=x;MY[iSel]=y;turn();}
+    iSel=-1;mo=0;
+  }
+  G.d.clearRect(0,0,W,H);
+  G.d.fillStyle='#7f7f7f';
+  for(let i=0;i<6;i++)coin(sx(PX[i])+188,sy(PY[i])+212);
+  G.d.fillStyle='#Af5f1f';
+  for(let i=0;i<6;i++)if(i!=iSel)coin(sx(MX[i]),sy(MY[i]));
+  if(iSel>-1)coin(mx,my);
+}
+function next(){iShape=(iShape+1) % 12;newGame();}
+</script>
+</head><body onload="setup();" style='font-family:sans-serif'><b>Coins</b>
+Slide the coins in the middle to match the pattern in the lower right.
+Coins can't slide over each other and must be touching 2 others when released.
+The pattern may face any direction. See if you can match the best scores
+on each pattern.<br>
+<canvas id="c" width="500" height="500"></canvas><br>
+<button onclick="next();">Next</button> Turns:<span id="trn">0</span> Best:<span id="best">3</span> 
+<button onclick="newGame();">Retry</button>
+<b><span id="ttl">name</span></b>
+<span id="errs" style="color:red;"></span>
+</body></html>

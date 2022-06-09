@@ -122,7 +122,7 @@ function G(C,F,O){//O={fboScript:'',onFrame:null,wrap:CLAMP,magFilter:NEAREST,mi
  G.c.addEventListener('mousedown',mouseDown,false);
  G.c.addEventListener('mouseup',mouseUp,false);
  G.c.addEventListener('mousemove',mouseMove,false);
- G.c.addEventListener('touchstart',mouseDown,false);
+ G.c.addEventListener('touchstart',touchStart,false);
  G.c.addEventListener('touchmove',mouseMove,false);
  G.c.addEventListener('touchend',mouseUp,false);
  document.addEventListener('keydown',keyDown,false);
@@ -159,16 +159,16 @@ function G(C,F,O){//O={fboScript:'',onFrame:null,wrap:CLAMP,magFilter:NEAREST,mi
  let sE1="unable to pass uniform ",sE2="missing/unused uniform ";
  for(let i=0;i<k.length;i++){
   let t=typeof(v[i]);
-  if(t.localeCompare("number")==0)G.uv[i]=1;
-  else if(t.localeCompare("object")==0){
+  if(t==="number")G.uv[i]=1;
+  else if(t==="object"){
    if(Array.isArray(v[i])){
     t=typeof(v[i][0]);
-    if(t.localeCompare("number")==0)G.uv[i]=0;
+    if(t==="number")G.uv[i]=0;
     else alert(sE1+k[i]+" an array of "+t+". Only float arrays are allowed.");
    }else{//a class
-    if(V.sEq(typeof(v[i].w),"number"))G.uv[i]=4;
-    else if(V.sEq(typeof(v[i].z),"number"))G.uv[i]=3;
-    else if(V.sEq(typeof(v[i].y),"number"))G.uv[i]=2;
+    if(typeof(v[i].w)==="number")G.uv[i]=4;
+    else if(typeof(v[i].z)==="number")G.uv[i]=3;
+    else if(typeof(v[i].y)==="number")G.uv[i]=2;
     else alert(sE1+k[i]+" of type "+t+". Only classes with x,y,z,w fields allowed.");
    }
   }else alert(sE1+k[i]+" of type "+t);
@@ -256,7 +256,10 @@ function _draw(){
 }//replace these event callbacks if needed
 function mouseDown(e){e.preventDefault();G.u.mouse.z=1.0;}
 function mouseUp(e){e.preventDefault();G.u.mouse.z=0.0;}
-function mouseMove(e){e.preventDefault();var rect=G.c.getBoundingClientRect();
-G.u.mouse.x=(e.clientX-rect.left)/rect.width;G.u.mouse.y=1.-(e.clientY-rect.top)/rect.height;}
+function mouseMove(e){e.preventDefault();if(e.changedTouches)e=e.changedTouches[0];
+  var rect=G.c.getBoundingClientRect();
+  G.u.mouse.x=(e.clientX-rect.left)/rect.width;
+  G.u.mouse.y=1.-(e.clientY-rect.top)/rect.height;}
+function touchStart(e){G.u.mouse.z=1.0;mouseMove(e);}
 function keyDown(e){G.u.key=e.keyCode;if(e.keyCode>=32 && e.keyCode<=40)e.preventDefault();}
 function keyUp(e){if(G.u.key==e.keyCode)G.u.key=0.0;}
