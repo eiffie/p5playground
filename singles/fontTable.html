@@ -1,0 +1,44 @@
+<!DOCTYPE html><html lang="en"><head><title>Font Table</title>
+<meta charset="UTF-8">
+<meta name="description" content="Font Table Lookup.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="font,unicode,acp,high,lo,surrogate,HTML,javascript,canvas">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<style>
+td{font-size:15pt;}
+</style>
+<script>
+var font="sans-serif";
+function hs(acp){return Math.floor((acp-0x10000)/0x400)+0xd800;}
+function ls(acp){return ((acp-0x10000)%0x400)+0xdc00;}
+function setup(v){
+  st.value="0x"+v.toString(16);
+  //console.log(v);
+  if(v<65536)uni.textContent='\\u'+v.toString(16);
+  else uni.textContent='\\u'+hs(v).toString(16)+'\\u'+ls(v).toString(16);
+  var i,s="<table style='font-family:"+font+";'>"+
+  "<tr><th></th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th>"+
+  "<th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>a</th><th>b</th>"+
+  "<th>c</th><th>d</th><th>e</th><th>f</th></tr>";
+  for(let j=0;j<256;j++){
+    i=j+v;
+    if(i%16==0)s+="<tr><td><b>"+(i/16).toString(16)+"</b></td>";
+    s+="<td>&#"+i+"</td>"
+    if(i%16==15)s+="</tr>";
+  }
+  s+="</table>";
+  d.innerHTML=s;
+}
+</script></head>
+<body style="font-family:sans-serif;" onload="setup(0);">
+<button onclick="font=fnt.value;setup(Number(st.value));">font</button>
+<input type="text" id="fnt" name="fnt" size="10" value="sans-serif">
+<button onclick="setup(Math.max(Number(st.value)-256,0));">&lt</button>
+<button onclick="setup(Number(st.value));">page</button>
+<button onclick="setup(Number(st.value)+256);">&gt</button>
+<input type="text" id="st" name="st" size="8">
+<span id="uni"></span>
+<div id="d">
+</div>
+</body></html>

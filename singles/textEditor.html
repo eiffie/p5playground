@@ -1,0 +1,126 @@
+<!DOCTYPE html><html lang="en"><head><title>Text Editor</title>
+<meta charset="UTF-8">
+<meta name="description" content="Client side text editor.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="editor,utility,offline,HTML,javascript">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+a:link {background-color:cyan; color:black; text-decoration:none;}
+a:visited {background-color:cyan; color:black; text-decoration:none;}
+</style>
+<script>
+const lineHeight=15;
+function download(data,filename,typ) {//'text/plain','image/jpeg'/png/gif 
+  var blb=new Blob([data], {type: typ});
+  var a=document.createElement("a"),url=URL.createObjectURL(blb);
+  a.href=url;//create a link, click it and remove link and url
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },0);
+}
+function uploadText(filename,txtId){//misnomer: nothing leaves the client
+  var fr=new FileReader();
+  fr.onload=function(){txtId.value=fr.result;}; 
+  fr.readAsText(filename);//readAsArrayBuffer() 'application/octet-stream'
+}
+function applyOptions(bail){
+  txtar.style.font=code.checked?'monospace':'sans-serif';
+  txtar.spellcheck=code.checked?false:'default';
+  txtar.textprediction=code.checked;
+  txtar.autocorrect=code.checked?'off':'on';
+  txtar.wrap=code.checked?'off':'soft'
+  txtar.style.color=doc.style.color=night.checked?'#80D0FF':'#000000';
+  txtar.style.background=doc.style.background=night.checked?'#202020':'#F0F0F0';
+  txtar.cols=phone.checked?'40':'80';
+  txtar.rows=phone.checked?'25':'40';
+  
+  if(bail)return;
+  if(saveOpt.checked){
+    localStorage.setItem("saveOpt",saveOpt.checked);
+    localStorage.setItem("code",code.checked);
+    localStorage.setItem("night",night.checked);
+    localStorage.setItem("phone",phone.checked);
+  }else{
+    if(localStorage.getItem("saveOpt"))localStorage.setItem("saveOpt",0);
+  }
+}
+function checkLocalStorage(){
+  if(saveOpt.checked=localStorage.getItem("saveOpt")){ 
+    code.checked=localStorage.getItem("code");
+    night.checked=localStorage.getItem("night");
+    phone.checked=localStorage.getItem("phone");
+    applyOptions(true);
+  }
+}
+function goto(tArea,line){tArea.scrollTop=line*lineHeight;}
+var sUndo;
+function replace(tArea,findStr,replaceStr){
+  sUndo=tArea.value;
+  tArea.value=tArea.value.replace(findStr,replaceStr);
+}
+function stringify(txt){
+  sUndo=txt;
+  a.replace("\\","\\\\");a.replace("\"","\\\"");
+  let a=txt.split("\n"),n=a.length,s="\"";
+  for(let i=0;i<n-1;i++)s+=a[i]+"\\\n";
+  return s+a[n-1]+"\"";
+}
+function keyDown(e){//console.log(e.keyCode);
+  if(e.keyCode==9){
+    if(txtar.selectionStart==txtar.selectionEnd){
+      txtar.selectionStart--;
+      txtar.setRangeText(txtar.value.charAt(txtar.selectionStart)+"  ");
+      txtar.selectionStart=txtar.selectionEnd=txtar.selectionStart+3;
+    }else{txtar.setRangeText("  ");}
+    e.preventDefault();
+  }else if(e.keyCode==13 && (txtar.selectionStart==txtar.selectionEnd)){
+    txtar.selectionStart--;
+    let i=txtar.selectionStart;
+    let ind=txtar.value.charAt(txtar.selectionStart)+(txtar.value.charAt(i)=="{"?"\n  ":"\n");    
+    while(i>0 && txtar.value.charCodeAt(i)!=10){i--};i++;
+    while(txtar.value.charCodeAt(i)==32){i++;ind+=" ";}
+    txtar.setRangeText(ind);
+    txtar.selectionStart=txtar.selectionEnd=txtar.selectionStart+ind.length;
+    e.preventDefault();
+  }
+}
+function Speak(t){speechSynthesis.speak(new SpeechSynthesisUtterance(t));}
+function setup(){
+  checkLocalStorage();
+  txtar.addEventListener('keydown',keyDown,false);
+}
+</script>
+</head>
+<body id="doc" onload="setup();">
+<button onclick="openfile.click();">open</button>
+<input id="openfile" name="openfile" type="file" style="display:none;"
+ onchange="uploadText(this.files[0],txtar);savefile.value=this.files[0].name;">
+<button onclick="download(txtar.value,savefile.value,'text/plain');">save</button>
+<input id="savefile" name="savefile" type="text"><a href="#options">opts</a><br>
+<textarea id="txtar" name="txtar" rows="25" cols="40" style="line-height:15px"></textarea><br>
+<a name="options">options:</a><br>
+<button onclick="navigator.clipboard.writeText(txtar.value);">copy</button>
+<button onclick="if(confirm('Delete All?'))txtar.value='';">new</button>
+<button onclick="txtar.value=stringify(txtar.value);">stringify</button>
+<button onclick="txtar.value=sUndo;">undo</button>
+<button onclick="Speak(txtar.value);">read</button><br>
+<input id="txtFind" name="txtFind" type="text">
+<button onclick="txtar.focus();find(txtFind.value);">find</button>
+<button onclick="goto(txtar,Number(txtFind.value)-1);">goto</button><br>
+<input id="txtReplace" name="txtReplace" type="text">
+<button onclick="replace(txtar,txtFind.value,txtReplace.value);">replace</button><br>
+<input id="code" name="code" type="checkbox">
+<label for="code">code, monospace/no spellcheck</label><br>
+<input id="night" name="night" type="checkbox">
+<label for="night">night, dark background</label><br>
+<input id="phone" name="phone" type="checkbox" checked="true">
+<label for="phone">phone, smaller size</label><br>
+<input id="saveOpt" name="saveOpt" type="checkbox">
+<label for="saveOpt">save these options</label><br>
+<button onclick="applyOptions(false);">Apply</button>
+<a href="#top">back to top</a>
+</body></html>

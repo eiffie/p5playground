@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en"><head><title>Sensors</title>
+<meta charset="UTF-8">
+<meta name="description" content="device sensor viewer.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="sensor,device,canvas,textarea,HTML,javascript">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+*{font-family:sans-serif;}
+</style>
+<script>
+const imgEarth=new Image();
+imgEarth.src="data:image/gif;base64,R0lGODlhNQAdALMAAAAAAAgICBAMECAcIDg2O1xaXn5+gKOipL29v87OztbO1tra2ufn5+/v7/f39///\
+/ywAAAAANQAdAAAE/vDJSV87KbGDCgBEUo1kaY5fqn7EWRnE4s4DMBT1ipz7lLYSgmF2+AgIhI/soTMl\
+H57VxwA6oKSfYorB/FVSBUQOSwYUHolySts91yZUtdxYiJYXHisDMCom52VWEgVDXSsPCh8lfHWAKgoP\
+VBQ9ElplIwRjjipolCR/ZEsUdpsfA54lcVKCFWk2Hw2kZWGoJAtYTmYLBqpyA0UzgytAnykDN4AMBiLB\
+hoMlt6UpzV8AHHwkmikC01K/1BQNHwWiL2oSCAAN4ozgI43YFK5YguJBLQvE7hIq+g9JoKZNaCDhVCYE\
+BPdJ4JailiEln7QY+KYQV4V0AkkcGOBD3T5ZSvEocGJFIh0DZvtWnKlgyQZJcxnd9Vo0LiRMMArHmIip\
+cQXHlFlMLPh5IkEMjMwKNWOh0AQCYkSDKWo6IwQ4AEqpaq0wIOHWGREAADs=";
+var aos,ros,gyr,gra,acc,las,mag,view=0,G,ox,oy,oz,ow;
+function logXYZ(sensor,logx,logy,logz){
+  logx.textContent=sensor.x.toFixed(2);
+  logy.textContent=sensor.y.toFixed(2);
+  logz.textContent=sensor.z.toFixed(2);
+}
+function logQuat(sensor,logx,logy,logz,logw){
+  logx.textContent=sensor.quaternion[0].toFixed(2);
+  logy.textContent=sensor.quaternion[1].toFixed(2);
+  logz.textContent=sensor.quaternion[2].toFixed(2);
+  logw.textContent=sensor.quaternion[3].toFixed(2);
+}
+function geoSucceed(pos){
+  glx.textContent=pos.coords.latitude.toFixed(2);
+  gly.textContent=pos.coords.longitude.toFixed(2);
+}
+function geoError(){}
+function run(){
+  if(aos)if(aos.hasReading)logQuat(aos,aox,aoy,aoz,aow);
+  if(ros)if(ros.hasReading)logQuat(ros,rox,roy,roz,row);
+  if(gra)if(gra.hasReading)logXYZ(gra,grx,gry,grz);
+  if(gyr)if(gyr.hasReading)logXYZ(gyr,gyx,gyy,gyz);
+  if(acc)if(acc.hasReading)logXYZ(acc,ax,ay,az);
+  if(las)if(las.hasReading)logXYZ(las,lax,lay,laz);
+  if(mag)if(mag.hasReading)logXYZ(mag,mgx,mgy,mgz);
+  if(view)view();
+  setTimeout(run,500);
+}
+function setup(){
+  try{aos=new AbsoluteOrientationSensor({frequency:2});aos.start();}catch(e){aosB.disabled=true;}
+  try{ros=new RelativeOrientationSensor({frequency:2,referenceFrame:'device'});ros.start();}catch(e){rosB.disabled=true;}
+  try{gra=new GravitySensor({frequency:2});gra.start();}catch(e){graB.disabled=true;}
+  try{gyr=new Gyroscope({frequency:2});gyr.start();}catch(e){gyrB.disabled=true;}
+  try{acc=new Accelerometer({frequency:2});acc.start();}catch(e){accB.disabled=true;}
+  try{las=new LinearAccelerationSensor({frequency:2});las.start();}catch(e){lasB.disabled=true;}
+  try{mag=new Magnetometer({frequency:2,referenceFrame:'device'});mag.start();}catch(e){magB.disabled=true;}
+  if(!navigator.geolocation)geoB.disabled=true;
+  else navigator.geolocation.getCurrentPosition(geoSucceed,geoError);
+  run();
+}
+class V{x=0.;y=0.;z=0.;w=0.;
+ constructor(a,b,c,d){this.x=a;this.y=b;this.z=c;this.w=d;}
+ mlc(a){this.x*=a;this.y*=a;this.z*=a;this.w*=a;}
+ mag(){return Math.sqrt(this.x*this.x+this.y*this.y+(this.z?this.z*this.z:0.)+(this.w?this.w*this.w:0.));}
+ nrm(){let m=this.mag();if(m==0.)this.x=m=1.;this.mlc(1./m);}
+ swz(i,j,k,l){let a=Object.values(this);return new V(a[i],a[j],a[k],a[l]);}
+ static add(a,b){return new V(a.x+b.x,a.y+b.y,a.z+b.z,a.w+b.w);}
+ static mlc(a,b){return new V(a.x*b,a.y*b,a.z*b,a.w*b);}
+ static crs(a,b){return new V(a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x);}
+ static dot(a,b){return b.x*a.x+b.y*a.y+(b.z&&a.z?b.z*a.z:0.)+(b.w&&a.w?a.w*b.w:0.);}
+ static fnc(a,f){return new V(f(a.x),f(a.y),f(a.z),f(a.w));}
+ static QmulQ(a,b){let a3=a.swz(0,1,2),b3=b.swz(0,1,2),t=V.add(V.mlc(a3,b.w),V.add(V.mlc(b3,a.w),V.crs(a3,b3)));
+  return new V(t.x,t.y,t.z,a.w*b.w-V.dot(a3,b3));}
+ static Qinv(a){let d=1./V.dot(a,a),t=V.mlc(a,-d);return new V(t.x,t.y,t.z,a.w*d);}
+ static QmulV(a,b){let qi=V.Qinv(a),q2=V.add(V.crs(b,qi),V.mlc(b,qi.w)),q=V.mlc(a,-V.dot(b,qi));
+  return V.add(q,V.add(V.mlc(q2,a.w),V.crs(q,q2)));}
+ static Qaxa(b,a){let c=V.mlc(b,Math.sin(a*.5)/V.mag(b));return new V(c.x,c.y,c.z,Math.cos(a*.5));}
+ static Qface(a){return V.Qaxa(new V(-a.y,a.x,0.),Math.acos(a.z/V.mag(a)));}
+ static Qpyr(a){let o=V.mlc(a,.5),s=V.fnc(o,Math.sin),c=V.fnc(o,Math.cos);
+  return new V(s.x*c.y*c.z+s.y*c.x*s.z, s.y*c.x*c.z-s.x*c.y*s.z, s.x*s.y*c.z+s.z*c.x*c.y, c.x*c.y*c.z-s.x*s.y*s.z);}
+}
+function line(x1,y1,x2,y2){G.beginPath();G.moveTo(x1,y1);G.lineTo(x2,y2);G.stroke();}
+function circle(x,y,r,f){G.beginPath();G.moveTo(x,y);G.arc(x,y,r,0,6.283);if(f)G.fill();else G.stroke();}
+function absOri(){
+  meter.innerHTML='<canvas id="c" width="320" height="320"></canvas>';
+  G=0;ow=0;
+  view=()=>{if(!aos.hasReading)return;if(!G)G=c.getContext('2d');
+    try{
+      G.clearRect(0,0,G.canvas.width,G.canvas.height);
+      let q=new V(aos.quaternion[0],aos.quaternion[1],aos.quaternion[2],aos.quaternion[3]);
+      let qi=V.Qinv(q);
+      ox=V.QmulQ(V.QmulQ(q,new V(1,0,0,0)),qi);
+      oy=V.QmulQ(V.QmulQ(q,new V(0,0,1,0)),qi);
+      oz=V.QmulQ(V.QmulQ(q,new V(0,1,0,0)),qi);
+      G.strokeStyle='#FF0000';line(160,160,160+100*ox.x,160+100*ox.y);
+      G.strokeStyle='#00FF00';line(160,160,160+100*oy.x,160+100*oy.y);
+      G.strokeStyle='#0000FF';line(160,160,160+100*oz.x,160+100*oz.y);
+    }catch(e){log(e.toString());}
+  };
+}
+function accel(){
+  meter.innerHTML='<canvas id="c" width="320" height="320"></canvas>';
+  ox=160;oy=160;G=0;
+  view=()=>{if(!acc.hasReading)return; if(!G)G=c.getContext('2d');
+    let x=Number(ax.textContent);if(isNaN(x))x=0;
+    let y=Number(az.textContent);if(isNaN(y))y=0;
+    x=ox+x*10;y=oy+y*10;
+    if(x<0)x=0;if(y<0)y=0;if(x>320)x=320;if(y>320)y=320;
+    line(ox,oy,x,y);ox=x,oy=y;
+  };
+}
+function geoLoc(){
+  meter.innerHTML='<canvas id="c" width="320" height="180"></canvas>';
+  G=0;view=()=>{if(G)return;
+    G=c.getContext('2d');
+    G.backcolor='#000000';
+    G.drawImage(imgEarth,0,0,53,29,0,0,318,174);
+    G.strokeStyle='#FFFFFF';
+    for(let x=0;x<320;x+=6)line(x,0,x,180);
+    for(let y=0;y<180;y+=6)line(0,y,320,y);
+    G.fillStyle='#FF0000';
+    let x=Number(gly.textContent),y=Number(glx.textContent);
+    x=(25+Math.floor(26*x/180))%53;
+    y=18-Math.floor(18*y/80);
+    G.fillRect(x*6+1,y*6+1,5,5);
+  };
+}
+function grav(){
+  meter.innerHTML='<canvas id="c" width="320" height="320"></canvas>';
+  G=0;view=()=>{if(!gra.hasReading)return; if(!G)G=c.getContext('2d');
+    G.clearRect(0,0,G.canvas.width,G.canvas.height);
+    let x=160-gra.x*10,y=160+gra.y*10;
+    line(160,160,x,y);
+    circle(x,y,5,1);
+  };
+}
+function gyro(){}
+function linAcc(){
+  meter.innerHTML='<canvas id="c" width="320" height="320"></canvas>';
+  ox=160;oy=160;G=0;
+  view=()=>{if(!G)G=c.getContext('2d');
+    let x=Number(lax.textContent);if(isNaN(x))x=0;
+    let y=Number(laz.textContent);if(isNaN(y))y=0;
+    x=ox+x*20;y=oy+y*20;
+    if(x<0)x=0;if(y<0)y=0;if(x>320)x=320;if(y>320)y=320;
+    line(ox,oy,x,y);ox=x,oy=y;
+  };
+}
+function magnet(){
+  meter.innerHTML='X:<meter id="magX" min="-500" max="500" low="-250" high="250" optimum="0" value="0"></meter><br>'+
+   'Y:<meter id="magY" min="-500" max="500" low="-250" high="250" optimum="0" value="0"></meter><br>'+
+   'Z:<meter id="magZ" min="-500" max="500" low="-250" high="250" optimum="0" value="0"></meter><br>';
+  view=()=>{if(!mag.hasReading)return;
+    magX.value=Math.max(magX.min,Math.min(magX.max,mag.x));
+    magY.value=Math.max(magY.min,Math.min(magY.max,mag.y));
+    magZ.value=Math.max(magZ.min,Math.min(magZ.max,mag.z));
+  };
+}
+function relOri(){
+  meter.innerHTML='<canvas id="c" width="320" height="320"></canvas>';
+  G=0;
+  view=()=>{if(!ros.hasReading)return; if(!G)G=c.getContext('2d');
+    try{
+      G.clearRect(0,0,G.canvas.width,G.canvas.height);
+      let q=new V(ros.quaternion[0],ros.quaternion[1],ros.quaternion[2],ros.quaternion[3]);
+      let qi=V.Qinv(q);
+      ox=V.QmulQ(V.QmulQ(q,new V(1,0,0,0)),qi);
+      oy=V.QmulQ(V.QmulQ(q,new V(0,0,1,0)),qi);
+      oz=V.QmulQ(V.QmulQ(q,new V(0,1,0,0)),qi);
+      G.strokeStyle='#FF0000';line(160,160,160+100*ox.x,160+100*ox.y);
+      G.strokeStyle='#00FF00';line(160,160,160+100*oy.x,160+100*oy.y);
+      G.strokeStyle='#0000FF';line(160,160,160+100*oz.x,160+100*oz.y);
+    }catch(e){log(e.toString());}
+  };
+}
+function log(s){msg.textContent+=s+"\n";}
+</script></head>
+<body onload="setup();">
+<table border="1px"><tr><th>sensor</th><th width="75px">x</th><th width="75px">y</th><th width="75px">z</th><th width="75px">w</th></tr>
+<tr><td><button id="aosB" onclick="absOri();">AbsoluteOrientationSensor</button></td><td id="aox">n/a</td><td id="aoy">n/a</td><td id="aoz">n/a</td><td id="aow">n/a</td></tr>
+<tr><td><button id="accB" onclick="accel();">Accelerometer</button></td><td id="ax">n/a</td><td id="ay">n/a</td><td id="az">n/a</td><td>n/a</td></tr>
+<tr><td><button id="geoB" onclick="geoLoc();">Geolocation</button></td><td id="glx">n/a</td><td id="gly">n/a</td><td>n/a</td><td>n/a</td></tr>
+<tr><td><button id="graB" onclick="grav();">GravitySensor</button></td><td id="grx">n/a</td><td id="gry">n/a</td><td id="grz">n/a</td><td>n/a</td></tr>
+<tr><td><button id="gyrB" onclick="gyro();">Gyroscope</button></td><td id="gyx">n/a</td><td id="gyy">n/a</td><td id="gyz">n/a</td><td>n/a</td></tr>
+<tr><td><button id="lasB" onclick="linAcc();">LinearAccelerationSensor</button></td><td id="lax">n/a</td><td id="lay">n/a</td><td id="laz">n/a</td><td>n/a</td></tr>
+<tr><td><button id="magB" onclick="magnet();">Magnetometer</button></td><td id="mgx">n/a</td><td id="mgy">n/a</td><td id="mgz">n/a</td><td>n/a</td></tr>
+<tr><td><button id="rosB" onclick="relOri();">RelativeOrientationSensor</button></td><td id="rox">n/a</td><td id="roy">n/a</td><td id="roz">n/a</td><td id="row">n/a</td></tr></table>
+<div id="meter"></div><div id="msg"></div></body></html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en"><head><title>Rolling Dice</title>
+<meta charset="UTF-8">
+<meta name="description" content="A playable demo game in a single file.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="HTML,javascript,canvas,game">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script>
+const LEFT_ARROW=37,RIGHT_ARROW=39,UP_ARROW=38,DOWN_ARROW=40,R=60;
+let B=new Array(6),D=new Array(6),iInput=0;
+var key,mouseX,mouseY,mouseZ,X,Y,PT;
+
+function setup(){//create event listeners and a drawing context
+  c.addEventListener('mousedown',mouseDown,false);
+  c.addEventListener('mouseup',mouseUp,false);
+  c.addEventListener('mousemove',mouseMove,false);
+  c.addEventListener('touchstart',touchStart,false);
+  c.addEventListener('touchmove',mouseMove,false);
+  c.addEventListener('touchend',mouseUp,false);
+  document.addEventListener('keydown',keyDown,false);
+  document.addEventListener('keyup',keyUp,false);
+  G=c.getContext("2d");
+  G.shadowOffsetX=2;G.shadowOffsetY=2;
+  G.shadowColor='#9f9f9f';
+  for(let i=0;i<B.length;i++)B[i]=new Array(6);//create 2 dimensional array
+  SetupGame();
+}
+function SetupGame(){//reset the board and place the dice randomly
+  for(let x=0;x<6;x++)for(let y=0;y<6;y++)B[x][y]=0;
+  for(let i=0;i<6;i++)D[i]=i+1;
+  X=randi(6);Y=randi(6);PT=1;
+  B[X][Y]=1;
+  draw();
+}
+function draw(){//draw the board and dice
+  G.clearRect(0,0,c.width,c.height);
+  var x,y;
+  for(x=0;x<6;x++)for(y=0;y<6;y++){
+    G.fillStyle=B[x][y]?'#008000':'#000000';
+    G.fillRect(x*R,y*R,R-2,R-2);
+    if(B[x][y])dots(x*R,y*R,B[x][y]);
+  }
+  x=R*X;y=R*Y;
+  G.fillStyle='#FFFFFF';
+  G.fillRect(x+2,y+2,R-6,R-6);
+  dots(x,y,D[2]);
+  msg(2);//output score to a span element
+}
+function dots(x, y, i){//draw the dots on the dice
+  const s=.3,sb=.35;//dot offset
+  G.fillStyle='#000000';
+  if((i%2)>0)circle(x+R/2,y+R/2);
+  if(i>1){
+    circle(x+R*s,y+R*s);
+    circle(x+R*2*sb,y+R*2*sb);
+  }
+  if(i>3){
+    circle(x+R*s,y+R*2*sb);
+    circle(x+R*2*sb,y+R*s);
+  }
+  if(i>5){
+    circle(x+R*s,y+R/2);
+    circle(x+R*2*sb,y+R/2);
+  }
+}
+//utility functions
+function circle(x,y){G.beginPath();G.arc(x,y,R/12,0,6.283);G.fill();}
+function randi(i){return Math.floor(i*Math.random() );}
+//event handling, fill key and mouse then check the input
+function mouseDown(e){e.preventDefault();mouseZ=1.0;checkInput();}
+function mouseUp(e){e.preventDefault();mouseZ=0.0;checkInput();}
+function mouseMove(e){e.preventDefault();if(e.changedTouches)e=e.changedTouches[0];
+  var rect=c.getBoundingClientRect();//find the position on the canvas (0-1)
+  mouseX=(e.clientX-rect.left)/rect.width;
+  mouseY=(e.clientY-rect.top)/rect.height;checkInput();}
+function touchStart(e){mouseZ=1.0;mouseMove(e);}//need to get coordinates
+function keyDown(e){key=e.keyCode;if(e.keyCode>=32 && e.keyCode<=40)e.preventDefault();checkInput();}
+function keyUp(e){if(key==e.keyCode)key=0.0;checkInput();}
+
+function checkInput(){//launch actions based on user input
+  if(iInput>0 && (mouseZ>0 || key>0))return;//throw out duplicates
+  iInput=0;//changed to 1 if we find new input 
+  if(mouseZ>0.){iInput=1;//button pressed or screen touched
+    let x=Math.floor(mouseX*6),y=Math.floor(mouseY*6);
+    if(x>X)right();
+    else if(x<X)left();
+    else if(y>Y)down();
+    else if(y<Y)up();
+  }
+  if(key>0){iInput=1;//key pressed
+    if(key==UP_ARROW)up();
+    if(key==DOWN_ARROW)down();
+    if(key==LEFT_ARROW)left();
+    if(key==RIGHT_ARROW)right();
+  }
+  if(iInput>0){chkDone();draw();}//a move was made, check score and draw board
+}
+function down(){//roll the dice if in bounds
+  let x=X,y=Y;
+  y++;
+  if(y>=6)return 0;
+  let t=D[0];D[0]=D[4];D[4]=D[2];D[2]=D[5];D[5]=t;
+  B[x][y]=D[0];Y=y;
+  return 1;
+}
+function up(){
+  let x=X,y=Y;
+  y--;
+  if(y<0)return 0;
+  let t=D[0];D[0]=D[5];D[5]=D[2];D[2]=D[4];D[4]=t;
+  B[x][y]=D[0];Y=y;
+  return 1;
+}
+function left(){
+  let x=X,y=Y;
+  x--;
+  if(x<0)return 0;
+  let t=D[0];D[0]=D[3];D[3]=D[2];D[2]=D[1];D[1]=t;
+  B[x][y]=D[0];X=x;
+  return 1;
+}
+function right(){
+  let x=X,y=Y;
+  x++;
+  if(x>=6)return 0;
+  let t=D[0];D[0]=D[1];D[1]=D[2];D[2]=D[3];D[3]=t;
+  B[x][y]=D[0];X=x;
+  return 1;
+}
+
+function chkDone(){//calculate the score
+  let b=0;PT=0;
+  for(let y=0;y<6;y++){
+    for(let x=0;x<6;x++){
+      let br=0;
+      if(B[x][y]==0)br=1;
+      for(let j=0;j<6;j++)if(x!=j)if(B[j][y]==B[x][y])br=1;
+      for(let j=0;j<6;j++)if(y!=j)if(B[x][j]==B[x][y])br=1;
+      if(!br)PT++;else b=1;
+    }
+  }
+  if(b>0)return;//not complete
+  msg(1);//output a message that they won
+}
+//ouput text to a span element
+function msg(s){msgs.textContent=s==0?"":s==1?"You are a winner!":
+                                         PT>0?"Score "+PT:
+                                              "Use Arrow Keys/Mouse";}
+
+</script></head>
+<body onload="setup();" style='font-family:sans-serif'>
+<b>Rolling Dice</b><br>
+Roll the dice to stamp each row and column with unique values. Use arrow keys/mouse/finger.<br>
+<table>
+  <tr valign="top">
+    <td>
+      <canvas id="c" width="360" height="360"></canvas><br>
+      <button onclick="SetupGame();">Retry</button>
+      <span id="msgs" style="color:green;"></span>
+    </td>
+    <td>
+      This little puzzle which may or may not have a solution makes use of
+      the 2d drawing context of the canvas element and event listeners.
+      Here are the steps involved.
+      <ol>
+        <li>As the page loads the &ltbody onload="setup();"&gt function is called.</li>
+        <li>setup() creates event listeners, the 2d drawing context and a 2d array for
+          the board. Then it calls SetupGame().</li>
+        <li>SetupGame() clears the board, creates the dice and then execution stops
+          until an event is raised.</li>
+        <li>Event listeners dispatch key and mouse values to CheckInput()</li>
+        <li>CheckInput() determines the action to take based on input, rolls
+          the dice checks the score and then calls draw to render the board.
+          Then its back to step 4 until the user exits or presses Retry whichs
+          returns to step 3.</li> 
+      </ol>   
+    </td>
+  </tr>
+</table>
+</body></html>

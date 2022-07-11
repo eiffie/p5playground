@@ -1,0 +1,133 @@
+<!DOCTYPE html><html lang="en"><head><title>Chesstris</title>
+<meta charset="UTF-8">
+<meta name="description" content="Chesstris a game of fast logic.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="font,unicode,chess,tetris,HTML,javascript,canvas">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<script>
+var G=0,frameMs,B=new Array(64),C={x:0,y:0,p:0},score,cap,turn=0,ge=1;
+const glyph=['0','\u2654','\u2655','\u2656','\u2657','\u2658','\u2659','\u265a',
+ '\u265b','\u265c','\u265d','\u265e','\u265f'];
+let u={key:0,mouse:{x:0,y:0,z:0}};
+function mouseDown(e){e.preventDefault();u.mouse.z=1.0;}
+function mouseMove(e){e.preventDefault();if(e.changedTouches)e=e.changedTouches[0];
+  var rect=c.getBoundingClientRect();
+  let a=(rect.width*c.height)/(rect.height*c.width);
+  if(a>1.)u.mouse.x=(e.clientX-rect.left-.5*(rect.width-rect.width/a))*a/rect.width;
+  else u.mouse.x=(e.clientX-rect.left)/rect.width;
+  if(a<1.)u.mouse.y=1.-(e.clientY-rect.top-.5*(rect.height-rect.height*a))/(rect.height*a);
+  else u.mouse.y=1.-(e.clientY-rect.top)/rect.height;
+} 
+function touchStart(e){u.mouse.z=1.0;mouseMove(e);}
+function keyDown(e){u.key=e.keyCode;if(e.keyCode>=32 && e.keyCode<=40)e.preventDefault();}
+function fullScreen(el){//browser handles reverse on Esc
+ if( el.requestFullscreen ) el.requestFullscreen();
+ else if( el.msRequestFullscreen ) el.msRequestFullscreen();
+ else if( el.mozRequestFullScreen ) el.mozRequestFullScreen();
+ else if( el.webkitRequestFullscreen ) el.webkitRequestFullscreen( Element.ALLOW_KEYBOARD_INPUT );
+}
+function randi(i){return Math.floor(Math.random()*i);}
+function piece(){
+  let r=Math.random()*2.;
+  let b=turn*6;
+  r=r%1.;
+  if(r<.5)b+=5;
+  else if(r<.6)b+=4;
+  else if(r<.7)b+=3;
+  else if(r<.8)b+=2;
+  else if(r<.85)b+=1;
+  return b+1;
+}
+function newGame(){
+  frameMs=800;turn=score=0;
+  for(let i=0;i<64;i++)B[i]=0;
+  C.x=randi(8);C.y=0;C.p=piece();
+  if(ge){ge=0;draw();}
+}
+function setup(){
+  if(!G)G=c.getContext("2d");
+  G.font="40px sans-serif";
+  c.addEventListener('mousedown',mouseDown,false);
+  c.addEventListener('mousemove',mouseMove,false);
+  c.addEventListener('touchstart',touchStart,false);
+  c.addEventListener('touchmove',mouseMove,false);
+  document.addEventListener('keydown',keyDown,false);
+  newGame();
+}
+function Clr(p){if(p==0)return -1;return p<6.5?0:1;}
+function Pc(p){return ((p-1)%6)+1;}
+function m8(x){return (x+8)%8;}
+function chk(x,dir){let nx=m8(x+dir);if(B[C.y*8+nx])return x;return nx;}
+function knight(x,y){
+  let oclr=C.p<6.5?1:0;
+  x=m8(x+C.x);y=m8(y+C.y);
+  if(oclr==Clr(B[y*8+x])){
+    B[C.y*8+C.x]=0;C.x=x;C.y=y;
+    cap=B[C.y*8+C.x];B[C.y*8+C.x]=C.p;
+    return 1;
+  }return 0;
+}
+const LEFT_ARROW=37,RIGHT_ARROW=39,DOWN_ARROW=40,KING=1,QUEEN=2,ROOK=3,BISHOP=4,KNIGHT=5,PAWN=6;
+var lastDir=0;
+function draw(){if(!G)return;
+  let R=c.width/8;cap=0;
+  G.fillStyle='#FFFFFF';
+  G.fillRect(0,0,c.width,c.height);
+  C.y+=1;
+  if(C.y>7.5 || B[C.y*8+C.x]){
+    var pc=Pc(C.p),oclr=C.p<6.5?1:0;//opponent color
+    C.y-=1;B[C.y*8+C.x]=C.p;
+    if(lastDir==0 && !(pc==KNIGHT)){//capture down
+      if(C.y<6.5 && oclr==Clr(B[(C.y+1)*8+C.x]) && (pc==KING || pc==QUEEN || pc==ROOK)){
+        B[C.y*8+C.x]=0;C.y+=1;cap=B[C.y*8+C.x];B[C.y*8+C.x]=C.p;
+      }//capture at angle down
+    }else if((pc==KING || pc==PAWN || pc==QUEEN || pc==BISHOP) && C.y<6.5 && oclr==Clr(B[(C.y+1)*8+m8(C.x+lastDir)])){
+      B[C.y*8+C.x]=0;C.y+=1;C.x=m8(C.x+lastDir);cap=B[C.y*8+C.x];B[C.y*8+C.x]=C.p;
+       //capture sideways
+    }else if((pc==KING || pc==ROOK || pc==QUEEN) && oclr==Clr(B[C.y*8+m8(C.x+lastDir)])){
+      B[C.y*8+C.x]=0;C.x=m8(C.x+lastDir);cap=B[C.y*8+C.x];B[C.y*8+C.x]=C.p;
+       //capture at angle up
+    }else if((pc==KING || pc==QUEEN || pc==BISHOP) && C.y>0.5 && oclr==Clr(B[(C.y-1)*8+m8(C.x+lastDir)])){
+      B[C.y*8+C.x]=0;C.y-=1;C.x=m8(C.x+lastDir);cap=B[C.y*8+C.x];B[C.y*8+C.x]=C.p;
+       //capture KNIGHT MOVES
+    }else if(pc==KNIGHT){
+      if(!knight(1,2))if(!knight(-1,2))if(!knight(2,1))if(!knight(-2,1))if(!knight(2,-1))
+       if(!knight(-2,-1))if(!knight(1,-2))knight(-1,-2);
+    }
+    turn=1-turn;
+    C.x=randi(8);C.y=0;C.p=piece();lastDir=0;
+    if(cap){cap=7-Pc(cap);cap*=cap;score+=cap;scr.textContent=score;}
+    if(B[C.y*8+C.x]>0.){ge=1;scr.textContent+=" GAME OVER";}
+  }
+  for(let y=0;y<8;y++)for(let x=0;x<8;x++){
+    if((x+y)%2==0){G.fillStyle='#808080';G.fillRect(x*R,y*R,R,R);}
+    if(B[y*8+x]){G.fillStyle='#000000';G.fillText(glyph[B[y*8+x]],x*R,y*R+R-2);}
+  }
+  G.fillStyle='#000000';
+  G.fillText(glyph[C.p],C.x*R,C.y*R+R-2);
+  if(u.key==LEFT_ARROW || (u.mouse.z>0. && u.mouse.x<.33)){lastDir=-1;C.x=chk(C.x,lastDir);}
+  if(u.key==RIGHT_ARROW || (u.mouse.z>0. && u.mouse.x>.66)){lastDir=1;C.x=chk(C.x,lastDir);}
+  if(u.key==DOWN_ARROW || (u.mouse.z>0. && u.mouse.x>.33 && u.mouse<.66)){lastDir=0;}
+  u.key=0;u.mouse.z=0.;
+  frameMs-=1;
+  if(!ge)setTimeout(draw,frameMs);
+}
+</script></head>
+<body onload="setup();" style="font-family:sans-serif;">
+<table><tr valign="top"><td>
+<button onclick="newGame();">reset</button> Score:<span id="scr">0</span><br>
+<canvas id="c" width="320" height="320"></canvas>
+<td><td>
+<b>Chesstris</b> Its Chess and Tetris but maybe not the best of both games.
+Try to score points by capturing the opposite color as your piece lands on the
+pile.  The angle that you decend left, down or right determines
+the direction of the attempted capture. Use the Arrow Keys, Mouse or Touch
+to direct both the angle of descent and capture!
+The falling piece can only move 1 cell to capture except for knights which capture
+automatically if possible. Pawns can only capture in a downward direction
+but other pieces will attempt to capture downward, to the side and then upward if no
+other captures are available.<br><br>
+It picks up speed quickly. Good luck.
+</td></tr></table>
+</body></html>

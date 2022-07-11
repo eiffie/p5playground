@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en"><head><title>Eval Playpen</title>
+<meta charset="UTF-8">
+<meta name="description" content="online/offline eval editor.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="eval,canvas,textarea,HTML,javascript,glsl">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+*{font-family:monospace;color:#80D0FF;background-color:#202020;}
+</style>
+<script>
+const lineHeight=15;
+var g;
+function clear(){tl.value='';}
+function log(o){//list all methods and properties of an object or display value if not
+  if(typeof(o)!='object'){tl.value+=o+'\n';return;}
+  let props=new Set(),co=o;
+  do{Object.getOwnPropertyNames(co).map(item=>props.add(item));}
+  while((co=Object.getPrototypeOf(co)));
+  tl.value+=[...props.keys()].map(item=>' '+item+(typeof o[item]==='function'?'('+o[item].length+')'
+   :typeof o[item]==='object'?'{}':'')).sort()+'\n';
+}
+function run(){
+  try{eval(te.value);}catch(e){log(e.toString());}
+}
+</script></head>
+<body>
+<table><tr><td>
+<textarea id="te" name="te" rows="15" cols="40" autocorrect="off" spellcheck="false"
+ autocapitalize="none" wrap="off" textprediction="false" style="line-height:15px">
+clear();//clears log,  c is canvas
+g=c.getContext('2d');//g is global var
+g.fillStyle='#80D0FF';
+g.fillText("Hello World \u2639",10,10);
+log(g);//display props of obj or value
+//g is only persisting var, for more...
+//g=new Array(MORE_GLOBALS);
+</textarea></td></tr>
+<tr><td><button onclick="run();">&gt</button><canvas id="c" width="300" height="10"></canvas></td></tr>
+<tr><td><textarea id="tl" name="tl" rows="15" cols="40" autocorrect="off" spellcheck="false"
+ autocapitalize="none" disabled="true" style="line-height:15px"></textarea>
+</td></tr></table></body></html>

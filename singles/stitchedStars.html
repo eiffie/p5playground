@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en"><head><title>Stitched Stars</title>
+<meta charset="UTF-8">
+<meta name="description" content="A demo of double buffering.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="webgl,webaudio,euler,spirals">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script id="fboShader" type="x-shader/x-fragment">
+precision highp float;
+uniform sampler2D fbo;
+uniform vec2 R;
+uniform float frame;
+#define DIV 1499.
+#define PTS 50.
+
+const float pi2=6.283185;
+float tube(vec2 pa, vec2 ba){return length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),.25,.75));}
+vec3 cmap(float a){return abs(vec3(sin(a),sin(a+1.),sin(a+1.7)));}
+void main(){
+  vec4 O;
+  vec2 U=gl_FragCoord.xy,u=floor(U);
+  bool bLogic=(u.y<1. && u.x<3.);u=U;//3 state pixels
+  float iF=max(0.,frame-1.);//setup figure, start step
+  float steps=1500.*5.,start=iF*PTS,fig=1.+floor(start/steps);
+  start=mod(start,steps);
+  //L0,L1 mnx,mxx,mny,mxy for centering and scaling, 2 xyxy last positions
+  vec4 L0=texture2D(fbo,vec2(.5)/R.xy);//load logic
+  vec4 L1=texture2D(fbo,vec2(1.5,.5)/R.xy);
+  vec4 L2=texture2D(fbo,vec2(2.5,.5)/R.xy);
+  if(iF==0.){//first frame
+    O=vec4(1);L0=vec4(-23,23,-23,23);L1=vec4(0.,0.,0.,0.01);L2=vec4(0.,R.y*.2,0.,0.);
+  }else if(start==0.){//new figure
+    float s=-.5*R.y/(L1.w-L1.z);
+    L2=vec4((L1.y+L1.x)*s,(L1.w+L1.z)*s,0.,0.);L0=L1;L1=vec4(0);
+    O=((U.x>R.x/2.)&&(mod(fig,5.)!=1.)?texture2D(fbo,U/R.xy-vec2(.5,0.)):vec4(1));
+  }else O=texture2D(fbo,U/R.xy);//load old figure
+  if(mod(fig,5.)>.5){if(U.x>R.x/2.){gl_FragColor=O;return;}U-=R.xy*vec2(.25,.5);}
+  else U=(U-R.xy*.5)*1.5;
+  float scl=.45*R.x/(L0.w-L0.z),a,b,b2;//scale the star to the screen
+  vec2 oL=L2.xy;//previous point for line drawing
+  for(float j=0.;j<PTS;j+=1.){//formula: 2*pi*fig/DIV*(i*i*i+i/5)
+    float i=start+j;
+    a=mod(i,DIV);  //since this is an angle multiple of 2pi
+    a=mod(i*a,DIV);//you can use mod by the divisor to toss big values early
+    a=mod(i*a,DIV);b2=a;//save for offscreen calc of next fig center, extents
+    a=mod(fig*a,DIV);b=mod(fig*i,DIV*5.);
+    b=pi2*fract((a+b*.2)/DIV);//now a+b (i*i*i+i/5) are not so far apart
+    L2.xy+=vec2(cos(b),sin(b))*scl;//now I want to integrate this sum but so far
+    float d=tube(U-L2.xy,oL-L2.xy);//I can only get a spiral
+    if(!bLogic)O.rgb=max(O.rgb*smoothstep(0.,2.5,d),cmap(pi2*i/DIV)*smoothstep(1.,0.,d));
+    oL=L2.xy;//save last point
+    if(bLogic){//next fig run offscreen to capture the center and extents
+      b=mod((fig+1.)*i,DIV*5.);
+      a=mod((fig+1.)*b2,DIV);
+      a=pi2*fract((a+b*.2)/DIV);
+      L2.zw+=vec2(cos(a),sin(a));
+      L1.xz=min(L1.xz,L2.zw);
+      L1.yw=max(L1.yw,L2.zw);
+    }
+  }
+  if(bLogic){if(u.x<1.)O=L0;else if(u.x<2.)O=L1;else if(u.x<3.)O=L2;}//save logic
+  gl_FragColor=O;
+}
+</script>
+<script id="fragShader" type="x-shader/x-fragment">
+precision highp float;
+uniform sampler2D fbo;
+uniform vec2 R;
+void main(){gl_FragColor=texture2D(fbo,gl_FragCoord.xy/R);}
+</script>
+<script> 
+class V{//vec2
+ x=0.;y=0.;
+ constructor(a,b){this.x=a;this.y=b;}
+ static c2(a){return new V(a,a);}
+}
+function G(C,F,O){//O={fboScript:'',onFrame:null,wrap:CLAMP,magFilter:NEAREST,minFilter:NEAREST}
+ G.u={R:V.c2(0.),time:0.,frame:0.};//{uniform:{key:value,...}}
+ G.LEFT_ARROW=37;G.RIGHT_ARROW=39;G.UP_ARROW=38;G.DOWN_ARROW=40;G.LINEAR=9729;G.REPEAT=10497;
+ function getShader(src, typ){//{returnPixels:#} fbo pixels 0,0 thru #,0 are placed in G.r[0..4*#] float array
+  var shader=G.gl.createShader(typ);//O can be null or {}, if onFrame:frame frame() is called after draw
+  G.gl.shaderSource(shader,src);
+  G.gl.compileShader(shader);
+  if(!G.gl.getShaderParameter(shader,G.gl.COMPILE_STATUS))alert(G.gl.getShaderInfoLog(shader));
+  return shader;
+ }
+ function script2Prog(F){
+  const VS="attribute vec3 position;void main(void){gl_Position=vec4(position,1.0);}";
+  var FS=F.length<255?document.getElementById(F).textContent:F;
+  var fs=getShader(FS,G.gl.FRAGMENT_SHADER);
+  var vs=getShader(VS,G.gl.VERTEX_SHADER);
+  var P=G.gl.createProgram();
+  G.gl.attachShader(P,vs);
+  G.gl.attachShader(P,fs);
+  G.gl.linkProgram(P);
+  if(!G.gl.getProgramParameter(P,G.gl.LINK_STATUS))alert("Could not initialise shader "+F);
+  G.gl.useProgram(P);
+  P.vertexPositionAttribute=G.gl.getAttribLocation(P,"position");
+  G.gl.enableVertexAttribArray(P.vertexPositionAttribute);
+  G.gl.vertexAttribPointer(P.vertexPositionAttribute, G.VP.itemSize, G.gl.FLOAT, false, 0, 0);
+  return P;
+ }
+ if(!O)O={};
+ if(O.onFrame)G.onFrame=O.onFrame;
+ G.buf=G.st=G.pt=0;
+ G.c=document.getElementById(C);
+ G.now=window.performance.now?function(){return window.performance.now();}:function(){return Date.now;};
+ if(O.fps){G.fpsMs=1000/O.fps;G.clock=G.now()-1;}
+ if(!window.requestAnimationFrame){window.requestAnimationFrame=(function(){
+   return function(callback,element){window.setTimeout(callback,G.fpsMs);};})();
+ }
+ G.paused=true;togglePause();
+ if(F==="2D"){G.d=G.c.getContext("2d");_animate();return;}
+ G.gl=G.c.getContext("webgl", { antialias: false, depth: false, alpha: false } );
+ G.gl.getExtension('OES_texture_float');
+ G.u.R.x=G.gl.viewportWidth=G.c.width;
+ G.u.R.y=G.gl.viewportHeight=G.c.height;
+ if(O.returnPixels){
+  G.rpW=Math.min(O.returnPixels,G.c.width);
+  G.rpH=O.returnPixels<G.c.width?1:Math.floor(O.returnPixels/G.c.width-.5)+1.;
+  if(!O.fboScript)alert("returnPixels will be ignored, no fboScript option");
+  else {G.returnPixels=O.returnPixels;G.r=new Float32Array(G.rpW*G.rpH*4);}
+ }
+ G.VP=G.gl.createBuffer();
+ G.gl.bindBuffer(G.gl.ARRAY_BUFFER, G.VP);
+ var vertices = [1.0,  1.0,  0.0, -1.0,  1.0,  0.0, 1.0, -1.0,  0.0, -1.0, -1.0,  0.0];
+ G.gl.bufferData(G.gl.ARRAY_BUFFER,new Float32Array(vertices),G.gl.STATIC_DRAW);
+ G.VP.itemSize = 3;
+ G.VP.numItems = 4;
+ G.P=script2Prog(F);
+ if(O.uniform)G.u={...G.u, ...O.uniform};
+ let k=Object.keys(G.u);
+ let v=Object.values(G.u);
+ G.ui=new Array(k.length);
+ G.uv=new Array(k.length);
+ let sE1="unable to pass uniform ",sE2="missing/unused uniform ";
+ for(let i=0;i<k.length;i++){
+  let t=typeof(v[i]);
+  if(t==="number")G.uv[i]=1;
+  else if(t==="object"){
+   if(Array.isArray(v[i])){
+    t=typeof(v[i][0]);
+    if(t==="number")G.uv[i]=0;
+    else alert(sE1+k[i]+" an array of "+t+". Only float arrays are allowed.");
+   }else{//a class
+    if(typeof(v[i].w)==="number")G.uv[i]=4;
+    else if(typeof(v[i].z)==="number")G.uv[i]=3;
+    else if(typeof(v[i].y)==="number")G.uv[i]=2;
+    else alert(sE1+k[i]+" of type "+t+". Only classes with x,y,z,w fields allowed.");
+   }
+  }else alert(sE1+k[i]+" of type "+t);
+  G.ui[i]=G.gl.getUniformLocation(G.P,k[i]);
+  if(!G.ui[i])console.log(sE2+k[i]+" in canvas shader");
+ }
+ if(O.fboScript){
+  G.ufbo=G.gl.getUniformLocation(G.P,"fbo");if(!G.ufbo)console.log(sE2+"sampler2D fbo; in screen shader");
+  G.PA=script2Prog(O.fboScript);
+  G.uiA=new Array(k.length);
+  for(let i=0;i<k.length;i++){
+   G.uiA[i]=G.gl.getUniformLocation(G.PA,k[i]);
+   if(!G.uiA[i])console.log(sE2+k[i]+" in fbo shader");
+  }
+  G.ufboA=G.gl.getUniformLocation(G.PA,"fbo");if(!G.ufboA)console.log(sE2+"sampler2D fbo; in fbo shader");
+ }
+ if(G.PA){
+  G.tx=new Array(2);
+  G.fbo=new Array(2);
+  for(let i=0;i<2;i++){
+   G.tx[i]=G.gl.createTexture();
+   G.gl.bindTexture(G.gl.TEXTURE_2D,G.tx[i]);
+   G.gl.texImage2D(G.gl.TEXTURE_2D,0,G.gl.RGBA,G.c.width,G.c.height,0,G.gl.RGBA,G.gl.FLOAT,null);
+   G.gl.texParameteri(G.gl.TEXTURE_2D,G.gl.TEXTURE_MAG_FILTER,O.magFilter?O.magFilter:G.gl.NEAREST);
+   G.gl.texParameteri(G.gl.TEXTURE_2D,G.gl.TEXTURE_MIN_FILTER,O.minFilter?O.minFilter:G.gl.NEAREST);
+   G.gl.texParameteri(G.gl.TEXTURE_2D,G.gl.TEXTURE_WRAP_S,O.wrap?O.wrap:G.gl.CLAMP_TO_EDGE);
+   G.gl.texParameteri(G.gl.TEXTURE_2D,G.gl.TEXTURE_WRAP_T,O.wrap?O.wrap:G.gl.CLAMP_TO_EDGE);
+   G.fbo[i]=G.gl.createFramebuffer();
+   G.gl.bindFramebuffer(G.gl.FRAMEBUFFER,G.fbo[i]);
+   G.fbo[i].width=G.c.width;G.fbo[i].height=G.c.height;
+   G.gl.framebufferTexture2D(G.gl.FRAMEBUFFER,G.gl.COLOR_ATTACHMENT0,G.gl.TEXTURE_2D,G.tx[i],0);
+  }
+ }G.gl.clearColor(0.,0.,0.,1.);_animate();
+}
+function togglePause(){//if called do this-->onFrame(){if(G.paused)return;
+  if(G.paused){G.st=G.now()-G.pt;_pauseAnim();G.paused=false;if(A.AC)A.AC.resume();}
+  else {_pauseAnim();if(A.AC)A.AC.suspend();}
+}
+function fullScreen(el){//browser handles reverse on Esc
+ if( el.requestFullscreen ) el.requestFullscreen();
+ else if( el.msRequestFullscreen ) el.msRequestFullscreen();
+ else if( el.mozRequestFullScreen ) el.mozRequestFullScreen();
+ else if( el.webkitRequestFullscreen ) el.webkitRequestFullscreen( Element.ALLOW_KEYBOARD_INPUT );
+}//DO NOT CALL UNDERSCORED FUNCTIONS
+function _pauseAnim(){G.paused=true;G.pt=G.now()-G.st;}
+function _animate(){requestAnimationFrame(_animate);
+  if(G.fpsMs){var n=G.now();if(n<G.clock)return;G.clock+=G.fpsMs-(n%G.fpsMs);}
+  if(!G.paused)_draw();}//else if(G.onFrame)G.onFrame();
+function _draw(){
+  function drawquad(){
+   G.gl.clear(G.gl.COLOR_BUFFER_BIT);
+   G.gl.drawArrays(G.gl.TRIANGLE_STRIP,0,G.VP.numItems);}
+  G.u.time=(G.now()-G.st)/1000.0;
+  if(G.onFrame)G.onFrame();
+  if(G.d)return;
+  let v=Object.values(G.u);
+  if(G.PA){
+   G.gl.activeTexture(G.gl.TEXTURE0);
+   G.gl.bindTexture(G.gl.TEXTURE_2D,G.tx[G.buf]);
+   G.buf=1-G.buf;
+   G.gl.bindFramebuffer(G.gl.FRAMEBUFFER,G.fbo[G.buf]);
+   G.gl.useProgram(G.PA);
+   for(let i=0;i<G.ui.length;i++)if(G.uiA[i])
+    if(G.uv[i]==0)G.gl.uniform1fv(G.uiA[i],v[i]);
+    else if(G.uv[i]==1)G.gl.uniform1f(G.uiA[i],v[i]);
+    else if(G.uv[i]==2)G.gl.uniform2f(G.uiA[i],v[i].x,v[i].y);
+    else if(G.uv[i]==3)G.gl.uniform3f(G.uiA[i],v[i].x,v[i].y,v[i].z);
+    else G.gl.uniform4f(G.uiA[i],v[i].x,v[i].y,v[i].z,v[i].w);
+   G.gl.uniform1i(G.ufboA,0);
+   drawquad();
+   if(G.returnPixels){G.gl.flush();G.gl.readPixels(0,0,G.rpW,G.rpH,G.gl.RGBA,G.gl.FLOAT,G.r);}
+   G.gl.bindFramebuffer(G.gl.FRAMEBUFFER,null);}
+  G.gl.useProgram(G.P);
+  for(let i=0;i<G.ui.length;i++)if(G.ui[i])
+   if(G.uv[i]==0)G.gl.uniform1fv(G.ui[i],v[i]);
+    else if(G.uv[i]==1)G.gl.uniform1f(G.ui[i],v[i]);
+    else if(G.uv[i]==2)G.gl.uniform2f(G.ui[i],v[i].x,v[i].y);
+    else if(G.uv[i]==3)G.gl.uniform3f(G.ui[i],v[i].x,v[i].y,v[i].z);
+    else G.gl.uniform4f(G.ui[i],v[i].x,v[i].y,v[i].z,v[i].w);
+  if(G.ufbo){
+    G.gl.uniform1i(G.ufbo,0);
+    G.gl.activeTexture(G.gl.TEXTURE0);
+    if(G.PA)G.gl.bindTexture(G.gl.TEXTURE_2D,G.tx[G.buf]);}
+  drawquad();
+}
+function A(a){//a=[{samps:24000,fill:ampk},{...}] 1 object for each sound effect
+ A.AC=null;   //required: samps=samples in buffer, ampk(k) is called for each sample k
+ if(!a)return;//optional: sampleRate:# is rate of recording, echo:# adds ampk(k-#)/2
+ A.buf=new Array(a.length);
+ try{A.AC=new (window.AudioContext || window.webkitAudioContext)();}
+ catch(error){window.alert("No WebAudioAPI support. "+error);return;}
+ for(let i=0;i<a.length;i++){
+  if(!a[i].samps || ! a[i].fill)alert("audio config error missing samps and/or fill");
+  if(!a[i].sampleRate)a[i].sampleRate=A.AC.sampleRate;
+  A.buf[i]=A.AC.createBuffer(1,a[i].samps,a[i].sampleRate);
+  if(!A.buf[i])alert("failed to create audio buffer, perform sanity check on samps and rate options");
+  var cd=A.buf[i].getChannelData(0);
+  for(let k=0;k<a[i].samps;k++){cd[k]=a[i].fill(k);if(a[i].echo)if(k>a[i].echo)cd[k]+=cd[k-a[i].echo]*.5;}
+ }
+}//O defaults {randomize:false,rate:1,gain:1,pan:0,detune:0,loop:false,startTime:0}
+function plAy(n,O){if(!A.AC){console.log("A.AC does not exist");return;}
+  let src=A.AC.createBufferSource();//O is optional and can be null or {}, don't use false just leave out
+  src.buffer=A.buf[n];
+  var R={source:src},output=A.AC.destination,st=0;
+  if(O){
+    if(O.loop)src.loop=true;
+  }src.connect(output);src.start(st);return R;
+}
+let N=[0,5,4,7,7,2,4,0,7,5,4,2,7,5,4,0],src;
+function song(k){
+  let time=k/12000;
+  function scale(n){let s=n%12;return ((s==1)||(s==3)||(s==6)||(s==8)||(s==11))?0:n;}
+  function ntof(n){return (scale(n)>0)?440.*Math.pow(2.,(n-67.)/12.):0;}
+  function pat(bt){return bt%((bt%32.)<16.?8:16);}
+  function I(n,t){return (.5-((ntof(n)*t+n*.07)%1.))*(1.-t);}
+  let tim=time*4.,bt=Math.floor(tim),t=tim%1.,t2=(tim/2.)%1.,t8=(tim/8.)%1.;
+  let n64=N[pat(Math.floor(bt/64.))];
+  let n8=n64+N[pat(Math.floor(bt/8.))];
+  let n1=n8+N[pat(bt)],n2=n8+N[pat(Math.floor(bt/2.))];
+  return (I(n1+48,t)+I(n2+48,t2*1.003)+I(n2+54,1.-t2)+I(n8+48,t8))*.1;
+}
+function setup(){
+  G("c","fragShader",{fboScript:"fboShader",onFrame:frame,fps:60});
+  togglePause();
+  A([{samps:456804,fill:song,sampleRate:12000,echo:1024}]);
+}
+function frame(){G.u.frame+=1.;}
+</script></head>
+<body onload="setup();" style="font-family:sans-serif;">
+<b>Stitched Stars</b> a framebuffer example.<br>
+<div>
+  <canvas id="c" width="512" height="320"></canvas><br>
+  <button onclick="togglePause();if(!src)src=plAy(0,{loop:true});this.textContent=G.paused?'&gt':'||';">&gt</button>
+  <button onclick="src.stop();G.u.frame=0.;src=plAy(0,{loop:true});">|&lt</button>
+  <button onclick="fullScreen(c);">Full Screen</button>
+</div>
+<div>
+  Frame buffers allow passing float values back in as texture uniforms
+  allowing the shader to be more independent and faster as data
+  can stay on the GPU. Most often double buffers are required for reading
+  and writing unless you merely read and write to the same pixel. The steps
+  for creating usable frame buffers are:<br>
+  <ol>
+    <li>Create a texture with gl.createTexture()</li>
+    <li>Bind the texture with bindTexture()</li>
+    <li>Create the memory allocation with texImage2D setting the datatype to Float</li>
+    <li>Set the texture parameters mag/minFilters, wrap.</li>
+    <li>Create a frame buffer with createFramebuffer</li>
+    <li>Bind the frame buffer with bindFramebuffer</li<
+    <li>Use framebufferTexture2D to attach them by COLOR_ATTACHMENT0.
+      Repeat from step 1 then toggle between the 2 using one as the texture
+      and the other as the buffer to hold shader output.</li>
+  </ol>
+  In this example the frame buffer runs the logic to draw a colorful stitched
+  pattern similar to Euler Spirals with angles increasing at a higher
+  exponential rate. Frame buffers have 32 bit floats which easily lose
+  precision so care must be taken to keep long running simulations from
+  breaking down.
+</div></body></html>

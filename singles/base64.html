@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><title>Base64 encdec</title>
+<meta charset="UTF-8">
+<meta name="description" content="Client side base64 encoder/decoder.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="base64,utility,offline,HTML,javascript">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<script>
+function stringify(txt){
+  let n=(txt.length-(txt.length % 80))/80+1;
+  var s="\"";
+  for(let i=0;i<n;i++)s+=txt.substring(i*80,i*80+80)+"\\\n";//"
+  s+="\"";
+  return s;
+}
+function download(data,filename,typ) {//handles base64 text or octet-stream
+  var bdata; //we start with a string of base64
+  if(typ==='application/octet-stream'){//this conversion should be automatic!
+    var bstr=atob(data);//convert base64 to binary string
+    var bary=new Array(bstr.length);//change it to a numeric array
+    for(let i=0;i<bstr.length;i++)bary[i]=bstr.charCodeAt(i);
+    bdata=new Uint8Array(bary);//convert it to a typed array
+  }else bdata=stringify(data);//convert base64 code to javascript string format
+  var blb=new Blob([bdata], {type: typ});//shove it in a blob with a generic type
+  var a=document.createElement("a"),url=URL.createObjectURL(blb);
+  a.href=url;//create a link, click it and remove link and url
+  a.download=filename;//filename determines mime type, typ determines text/binary
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },0);
+}
+function uploadFile(filename,tArea){//misnomer: nothing leaves the client
+  var fr=new FileReader();
+  fr.onload=function(){tArea.value=btoa(fr.result);};
+  fr.readAsBinaryString(filename);
+}
+function header(enc64,tHead){
+  var b=atob(enc64),n=b.length>10?10:b.length;
+  tHead.value="";
+  for(let i=0;i<n;i++)tHead.value+=b.charCodeAt(i)+"'"+b.charAt(i)+"' ";
+}
+</script>
+</head>
+<body>
+<div>
+<button onclick="openfile.click();">Encode File</button>
+<span id="openSpn"></span>
+<input id="openfile" name="openfile" type="file" style="display:none;"
+ onchange="uploadFile(this.files[0],txtar);openSpn.textContent=this.files[0].name;"><br>
+<input id="savetext" name="savetext" type="text">
+<button onclick="download(txtar.value,savetext.value,'text/plain');">Save Stringified</button><br>
+<input id="savefile" name="savefile" type="text">
+<button onclick="download(txtar.value,savefile.value,'application/octet-stream');">Save Binary</button><br>
+<button onclick="navigator.clipboard.writeText(txtar.value);">copy</button>
+<button onclick="header(txtar.value,txtHead);">Header</button><input name="txtHead" id="txtHead" type="text"><br>
+<textarea id="txtar" name="txtar" rows="25" cols="40" autocorrect="off" spellcheck="false"></textarea><br>
+</div>
+<div>
+Instructions:<br>
+<b>Encoding a file to base64</b> click the Encode File button and the textarea is filled
+with the base64 version as 1 long string with no breaks.<br>
+<b>Save Stringified</b> will save the base64 encoding as a text file containing code for a
+javascript string. Type the name of the text file ie: base64.txt into the input field
+preceding the button.<br>
+<b>Save Binary</b> will convert the base64 encoding to binary and save it as the
+filename in the preceding input field. The extension determines the MIME type.<br>
+<b>Copy</b> will copy the text of the textarea to the clipboard.<br>
+<b>Show Header</b> will display the first 10 hex digits/characters of the file to
+help determine the extension that you should use if you don't know what the file is.
+Some commmon headers are obvious GIF, PDF some aren't Y0YA=jpeg.
+</div></body></html>

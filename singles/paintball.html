@@ -1,0 +1,382 @@
+<!DOCTYPE html><html lang="en"><head><title>Paintball</title>
+<meta charset="UTF-8">
+<meta name="description" content="That game where you bat a ball that paints the sky.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="WebAudio,webgl,HTML,javascript,canvas">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<script id="fboShader" type="x-shader/x-fragment">
+precision highp float;
+uniform sampler2D fbo;
+uniform vec2 res;
+uniform float time;
+uniform float user;
+uniform float key;
+uniform vec3 mouse;
+#define RADIUS .05
+#define EPSILON .00001
+#define load(x,y) texture2D(fbo,vec2(x,y)/res)
+#define l2(v) texture2D(fbo,(v)/res)
+vec2 rotate(vec2 v, float angle) {return cos(angle)*v+sin(angle)*vec2(v.y,-v.x);} 
+void main(){
+  vec2 U=gl_FragCoord.xy,u=U/res;
+  vec4 O=texture2D(fbo,u);
+  if(user<2.){//initialize
+    if(U.x+U.y<1.2)O=vec4(5,0,0,0);
+    else if(U.y<1.){
+      if(U.x<2.)O=vec4(.5,1.,0.,0.);//beachball
+      else if(U.x<3.)O=vec4(.5,0.,.5,0.);//paddle
+      else O=vec4(0);//scores
+    }else {
+      O=vec4(0);//field
+      for(float i=0.;i<10.;i+=1.){
+        vec2 v=vec2(cos(time+i),sin((time+i)*.73));
+        vec2 p=v*.4+vec2(.5)-u;
+        O+=vec4(v,1.,0.)*exp(-1000.*dot(p,p));
+      }
+    }
+    gl_FragColor=O;return;
+  }
+  vec4 st=load(0.5,.5);
+  vec4 bl=load(1.5,.5);
+  vec4 pd=load(2.5,.5);
+  if(st.x==0.){gl_FragColor=O;return;}//end game
+  if(U.y<1.){//L0=snd,scr,pdx,pdy L1=blx,bly,obx,oby, rest birth bugs, collect pnts
+    if(U.x<1.){//collect points, sounds
+      if(bl.y<0.)O.x-=1.;
+      O.z=length(pd.xy-bl.xy)<RADIUS+RADIUS/2.?.25+max(0.,-dot(bl.zw,pd.zw)):0.;//for sound
+      O.w+=load(3.5,.5).w;//increase score
+      if(O.w>3500.){O.w=0.;O.x+=1.;}
+    }else if(U.x<2.){//ball
+      if(O.y<0.){O.y=1.+RADIUS;O.z=O.w=0.;}
+      vec4 fd=texture2D(fbo,O.xy);
+      O.xy+=O.zw+fd.xy*.01;
+      if(O.x<0.){O.x=0.;O.z=-O.z;}
+      if(O.x>1.){O.x=1.;O.z=-O.z;}
+      if(mouse.z>0.&&length(O.xy-pd.xy)<RADIUS+RADIUS/2.){
+        vec2 N=normalize(O.xy-pd.xy);
+        if(dot(O.zw,N)<0.)O.zw=reflect(O.zw,N);
+        O.zw+=(pd.xy-pd.zw)*vec2(.25,.125);
+      }
+      O.zw*=.99;
+      O.w-=0.0001;
+    }else if(U.x<3.){//pdl
+      if(mouse.z>0.){
+        float m=length(O.xy-mouse.xy);
+        O.zw=O.xy;
+        O.xy+=.05*(mouse.xy-O.xy)/m;
+      }
+    }else{//move score left
+      O.w=load(U.x+1.,U.y).w+load(U.x,U.y+1.).w;
+    }
+  }else{//logic of field
+    if(bl.y<0.){
+      for(float i=0.;i<10.;i+=1.){
+        vec2 v=vec2(cos(time+i),sin((time+i)*.73));
+        vec2 p=v*.4+vec2(.5)-u;
+        O+=vec4(v,1.,0.)*exp(-1000.*dot(p,p));
+      }
+    }
+    vec2 up=vec2(0,1),rt=vec2(1,0),lf=vec2(-1,0),dw=vec2(0,-1);
+    if(U.y>res.y-1.)up.y=2.;
+    vec2 v=U+dw;if(v.y<.5)v.y=.5;if(v.x<3.5 && v.y<1.5)v=vec2(3.5,1.5);
+    vec4 lu=l2(U+up),lr=l2(U+rt),ll=l2(U+lf),ld=l2(v);
+    float fu=max(0.,-dot(lu.xy,up)),fr=max(0.,-dot(lr.xy,rt));
+    float fl=max(0.,-dot(ll.xy,lf)),fd=max(0.,-dot(ld.xy,dw));
+    O.xy=O.xy*(1.-(fu+fl+fr+fd)/4.)+(lu.xy*fu+lr.xy*fr+ll.xy*fl+ld.xy*fd)/4.;
+    v=u-bl.xy;
+    float d=exp(-1000.*dot(v,v));
+    O.w=O.z*d;O.z*=1.-d;
+    O.xy+=bl.zw*25.*d;
+    O.xy=rotate(O.xy,dot(O.xy,O.xy)*.025);
+    O.w+=lu.w;
+  }
+  gl_FragColor=O;
+}
+</script>
+
+<script id="fragShader" type="x-shader/x-fragment">
+precision mediump float;
+uniform sampler2D fbo;
+uniform vec2 res;
+uniform vec3 mouse;
+void main(){//transforms the fbo data slightly and adds a mouse cursor
+  vec2 U=gl_FragCoord.xy,u=U/res;
+  gl_FragColor=1.-abs(texture2D(fbo,u));
+  if(mouse.z>0.){
+    float r=abs(length(mouse.xy-u)-.025);
+    gl_FragColor*=smoothstep(0.0,0.01,r);
+  }
+  gl_FragColor.b=gl_FragColor.a;
+  if(U.x<1. || U.y<1. || U.x>res.x-1. || U.y>res.y-1.)gl_FragColor=vec4(0);
+}
+</script>
+
+<script>
+class V{//vec2,3
+ x=0.;y=0.;z=0.;w=0.;
+ constructor(a,b,c,d){this.x=a;this.y=b;this.z=c;this.w=d;}
+ static c2(a){return new V(a,a);}
+ static c3(a){return new V(a,a,a);}
+}
+function A(a){//a=[{samps:24000,fill:ampk},{...}] 1 object for each sound effect
+ A.AC=null;   //required: samps=samples in buffer, ampk(k) is called for each sample k
+ if(!a)return;//optional: sampleRate:# is rate of recording, echo:# adds ampk(k-#)/2
+ A.buf=new Array(a.length);
+ try{A.AC=new (window.AudioContext || window.webkitAudioContext)();}
+ catch(error){window.alert("No WebAudioAPI support. "+error);return;}
+ for(let i=0;i<a.length;i++){
+  if(!a[i].samps || ! a[i].fill)alert("audio config error missing samps and/or fill");
+  if(!a[i].sampleRate)a[i].sampleRate=A.AC.sampleRate;
+  A.buf[i]=A.AC.createBuffer(1,a[i].samps,a[i].sampleRate);
+  if(!A.buf[i])alert("failed to create audio buffer, perform sanity check on samps and rate options");
+  var cd=A.buf[i].getChannelData(0);
+  for(let k=0;k<a[i].samps;k++){cd[k]=a[i].fill(k);if(a[i].echo)if(k>a[i].echo)cd[k]+=cd[k-a[i].echo]*.5;}
+ }
+}//O defaults {randomize:false,rate:1,gain:1,pan:0,detune:0,loop:false,startTime:0}
+function plAy(n,O){if(!A.AC){console.log("A.AC does not exist");return;}
+  let src=A.AC.createBufferSource();//O is optional and can be null or {}, don't use false just leave out
+  src.buffer=A.buf[n];
+  var R={source:src},output=A.AC.destination,st=0;
+  if(O){
+    if(O.gain){
+      var gn=A.AC.createGain();
+      gn.connect(output);output=gn;
+      gn.gain.value=O.gain;
+      R.gain=gn;
+    }if(O.pan){
+      var pn=O.pan=="3D"?A.AC.createPanner():A.AC.createStereoPanner();
+      pn.connect(output);output=pn;
+      if(O.pan!="3D")pn.pan.value=O.pan;
+      R.pan=pn;
+    }if(O.randomize)src.playbackRate.setValueAtTime(1.+Math.random()*.1,0);
+    if(O.rate)src.playbackRate.setValueAtTime(O.rate,0);
+    if(O.detune)src.detune.setValueAtTime(O.detune,0);
+    if(O.loop)src.loop=true;
+    if(O.startTime)st=O.startTime;
+  }src.connect(output);src.start(st);return R;
+}
+function G(C,F,O){//O={fboScript:'',onFrame:null,wrap:CLAMP,magFilter:NEAREST,minFilter:NEAREST}
+ G.u={res:V.c2(0.),time:0.,user:0.,key:0.,mouse:V.c3(0.)};//{uniform:{key:value,...}}
+ G.LEFT_ARROW=37;G.RIGHT_ARROW=39;G.UP_ARROW=38;G.DOWN_ARROW=40;G.LINEAR=9729;G.REPEAT=10497;
+ function getShader(src, typ){//{returnPixels:#} fbo pixels 0,0 thru #,0 are placed in G.r[0..4*#] float array
+  var shader=G.gl.createShader(typ);//O can be null or {}, if onFrame:frame frame() is called after draw
+  G.gl.shaderSource(shader,src);
+  G.gl.compileShader(shader);
+  if(!G.gl.getShaderParameter(shader,G.gl.COMPILE_STATUS))alert(G.gl.getShaderInfoLog(shader));
+  return shader;
+ }
+ function script2Prog(F){
+  const VS="attribute vec3 position;void main(void){gl_Position=vec4(position,1.0);}";
+  var FS=F.length<255?document.getElementById(F).textContent:F;
+  var fs=getShader(FS,G.gl.FRAGMENT_SHADER);
+  var vs=getShader(VS,G.gl.VERTEX_SHADER);
+  var P=G.gl.createProgram();
+  G.gl.attachShader(P,vs);
+  G.gl.attachShader(P,fs);
+  G.gl.linkProgram(P);
+  if(!G.gl.getProgramParameter(P,G.gl.LINK_STATUS))alert("Could not initialise shader "+F);
+  G.gl.useProgram(P);
+  P.vertexPositionAttribute=G.gl.getAttribLocation(P,"position");
+  G.gl.enableVertexAttribArray(P.vertexPositionAttribute);
+  G.gl.vertexAttribPointer(P.vertexPositionAttribute, G.VP.itemSize, G.gl.FLOAT, false, 0, 0);
+  return P;
+ }
+ if(!O)O={};
+ if(O.onFrame)G.onFrame=O.onFrame;
+ G.buf=G.st=G.pt=0;
+ G.c=document.getElementById(C);
+ G.c.addEventListener('mousedown',mouseDown,false);
+ G.c.addEventListener('mouseup',mouseUp,false);
+ G.c.addEventListener('mousemove',mouseMove,false);
+ G.c.addEventListener('touchstart',touchStart,false);
+ G.c.addEventListener('touchmove',mouseMove,false);
+ G.c.addEventListener('touchend',mouseUp,false);
+ document.addEventListener('keydown',keyDown,false);
+ document.addEventListener('keyup',keyUp,false);
+ G.now=window.performance.now?function(){return window.performance.now();}:function(){return Date.now;};
+ if(O.fps){G.fpsMs=1000/O.fps;G.clock=G.now()-1;}
+ if(!window.requestAnimationFrame){window.requestAnimationFrame=(function(){
+   return function(callback,element){window.setTimeout(callback,G.fpsMs);};})();
+ }
+ G.paused=true;if(!O.paused)togglePause();
+ if(F==="2D"){G.d=G.c.getContext("2d");_animate();return;}
+ G.gl=G.c.getContext("webgl", { antialias: false, depth: false, alpha: false } );
+ G.gl.getExtension('OES_texture_float');
+ G.u.res.x=G.gl.viewportWidth=G.c.width;
+ G.u.res.y=G.gl.viewportHeight=G.c.height;
+ if(O.returnPixels){
+  G.rpW=Math.min(O.returnPixels,G.c.width);
+  G.rpH=O.returnPixels<G.c.width?1:Math.floor(O.returnPixels/G.c.width-.5)+1.;
+  if(!O.fboScript)alert("returnPixels will be ignored, no fboScript option");
+  else {G.returnPixels=O.returnPixels;G.r=new Float32Array(G.rpW*G.rpH*4);}
+ }
+ G.VP=G.gl.createBuffer();
+ G.gl.bindBuffer(G.gl.ARRAY_BUFFER, G.VP);
+ var vertices = [1.0,  1.0,  0.0, -1.0,  1.0,  0.0, 1.0, -1.0,  0.0, -1.0, -1.0,  0.0];
+ G.gl.bufferData(G.gl.ARRAY_BUFFER,new Float32Array(vertices),G.gl.STATIC_DRAW);
+ G.VP.itemSize = 3;
+ G.VP.numItems = 4;
+ G.P=script2Prog(F);
+ if(O.uniform)G.u={...G.u, ...O.uniform};
+ let k=Object.keys(G.u);
+ let v=Object.values(G.u);
+ G.ui=new Array(k.length);
+ G.uv=new Array(k.length);
+ let sE1="unable to pass uniform ",sE2="missing/unused uniform ";
+ for(let i=0;i<k.length;i++){
+  let t=typeof(v[i]);
+  if(t==="number")G.uv[i]=1;
+  else if(t==="object"){
+   if(Array.isArray(v[i])){
+    t=typeof(v[i][0]);
+    if(t==="number")G.uv[i]=0;
+    else alert(sE1+k[i]+" an array of "+t+". Only float arrays are allowed.");
+   }else{//a class
+    if(typeof(v[i].w)==="number")G.uv[i]=4;
+    else if(typeof(v[i].z)==="number")G.uv[i]=3;
+    else if(typeof(v[i].y)==="number")G.uv[i]=2;
+    else alert(sE1+k[i]+" of type "+t+". Only classes with x,y,z,w fields allowed.");
+   }
+  }else alert(sE1+k[i]+" of type "+t);
+  G.ui[i]=G.gl.getUniformLocation(G.P,k[i]);
+  if(!G.ui[i])console.log(sE2+k[i]+" in canvas shader");
+ }
+ if(O.fboScript){
+  G.ufbo=G.gl.getUniformLocation(G.P,"fbo");if(!G.ufbo)console.log(sE2+"sampler2D fbo; in screen shader");
+  G.PA=script2Prog(O.fboScript);
+  G.uiA=new Array(k.length);
+  for(let i=0;i<k.length;i++){
+   G.uiA[i]=G.gl.getUniformLocation(G.PA,k[i]);
+   if(!G.uiA[i])console.log(sE2+k[i]+" in fbo shader");
+  }
+  G.ufboA=G.gl.getUniformLocation(G.PA,"fbo");if(!G.ufboA)console.log(sE2+"sampler2D fbo; in fbo shader");
+ }
+ if(G.PA){
+  G.tx=new Array(2);
+  G.fbo=new Array(2);
+  for(let i=0;i<2;i++){
+   G.tx[i]=G.gl.createTexture();
+   G.gl.bindTexture(G.gl.TEXTURE_2D,G.tx[i]);
+   G.gl.texImage2D(G.gl.TEXTURE_2D,0,G.gl.RGBA,G.c.width,G.c.height,0,G.gl.RGBA,G.gl.FLOAT,null);
+   G.gl.texParameteri(G.gl.TEXTURE_2D,G.gl.TEXTURE_MAG_FILTER,O.magFilter?O.magFilter:G.gl.NEAREST);
+   G.gl.texParameteri(G.gl.TEXTURE_2D,G.gl.TEXTURE_MIN_FILTER,O.minFilter?O.minFilter:G.gl.NEAREST);
+   G.gl.texParameteri(G.gl.TEXTURE_2D,G.gl.TEXTURE_WRAP_S,O.wrap?O.wrap:G.gl.CLAMP_TO_EDGE);
+   G.gl.texParameteri(G.gl.TEXTURE_2D,G.gl.TEXTURE_WRAP_T,O.wrap?O.wrap:G.gl.CLAMP_TO_EDGE);
+   G.fbo[i]=G.gl.createFramebuffer();
+   G.gl.bindFramebuffer(G.gl.FRAMEBUFFER,G.fbo[i]);
+   G.fbo[i].width=G.c.width;G.fbo[i].height=G.c.height;
+   G.gl.framebufferTexture2D(G.gl.FRAMEBUFFER,G.gl.COLOR_ATTACHMENT0,G.gl.TEXTURE_2D,G.tx[i],0);
+  }
+ }G.gl.clearColor(0.,0.,0.,1.);_animate();
+}
+function togglePause(){//if called do this-->onFrame(){if(G.paused)return;
+  if(G.paused){G.st=G.now()-G.pt;_pauseAnim();G.paused=false;if(A.AC)A.AC.resume();}
+  else {_pauseAnim();if(A.AC)A.AC.suspend();}
+}
+function fullScreen(el){//browser handles reverse on Esc
+ if( el.requestFullscreen ) el.requestFullscreen();
+ else if( el.msRequestFullscreen ) el.msRequestFullscreen();
+ else if( el.mozRequestFullScreen ) el.mozRequestFullScreen();
+ else if( el.webkitRequestFullscreen ) el.webkitRequestFullscreen( Element.ALLOW_KEYBOARD_INPUT );
+}//DO NOT CALL UNDERSCORED FUNCTIONS
+function _pauseAnim(){G.paused=true;G.pt=G.now()-G.st;}
+function _animate(){requestAnimationFrame(_animate);
+  if(G.fpsMs){var n=G.now();if(n<G.clock)return;G.clock+=G.fpsMs-(n%G.fpsMs);}
+  if(!G.paused)_draw();}//else if(G.onFrame)G.onFrame();
+function _draw(){
+  function drawquad(){
+   G.gl.clear(G.gl.COLOR_BUFFER_BIT);
+   G.gl.drawArrays(G.gl.TRIANGLE_STRIP,0,G.VP.numItems);}
+  G.u.time=(G.now()-G.st)/1000.0;
+  if(G.onFrame)G.onFrame();
+  if(G.d)return;
+  let v=Object.values(G.u);
+  if(G.PA){
+   G.gl.activeTexture(G.gl.TEXTURE0);
+   G.gl.bindTexture(G.gl.TEXTURE_2D,G.tx[G.buf]);
+   G.buf=1-G.buf;
+   G.gl.bindFramebuffer(G.gl.FRAMEBUFFER,G.fbo[G.buf]);
+   G.gl.useProgram(G.PA);
+   for(let i=0;i<G.ui.length;i++)if(G.uiA[i])
+    if(G.uv[i]==0)G.gl.uniform1fv(G.uiA[i],v[i]);
+    else if(G.uv[i]==1)G.gl.uniform1f(G.uiA[i],v[i]);
+    else if(G.uv[i]==2)G.gl.uniform2f(G.uiA[i],v[i].x,v[i].y);
+    else if(G.uv[i]==3)G.gl.uniform3f(G.uiA[i],v[i].x,v[i].y,v[i].z);
+    else G.gl.uniform4f(G.uiA[i],v[i].x,v[i].y,v[i].z,v[i].w);
+   G.gl.uniform1i(G.ufboA,0);
+   drawquad();
+   if(G.returnPixels){G.gl.flush();G.gl.readPixels(0,0,G.rpW,G.rpH,G.gl.RGBA,G.gl.FLOAT,G.r);}
+   G.gl.bindFramebuffer(G.gl.FRAMEBUFFER,null);}
+  G.gl.useProgram(G.P);
+  for(let i=0;i<G.ui.length;i++)if(G.ui[i])
+   if(G.uv[i]==0)G.gl.uniform1fv(G.ui[i],v[i]);
+    else if(G.uv[i]==1)G.gl.uniform1f(G.ui[i],v[i]);
+    else if(G.uv[i]==2)G.gl.uniform2f(G.ui[i],v[i].x,v[i].y);
+    else if(G.uv[i]==3)G.gl.uniform3f(G.ui[i],v[i].x,v[i].y,v[i].z);
+    else G.gl.uniform4f(G.ui[i],v[i].x,v[i].y,v[i].z,v[i].w);
+  if(G.ufbo){
+    G.gl.uniform1i(G.ufbo,0);
+    G.gl.activeTexture(G.gl.TEXTURE0);
+    if(G.PA)G.gl.bindTexture(G.gl.TEXTURE_2D,G.tx[G.buf]);}
+  drawquad();
+}//replace these event callbacks if needed
+function mouseDown(e){e.preventDefault();G.u.mouse.z=1.0;}
+function mouseUp(e){e.preventDefault();G.u.mouse.z=0.0;}
+function mouseMove(e){e.preventDefault();if(e.changedTouches)e=e.changedTouches[0];
+  var rect=G.c.getBoundingClientRect();
+  let a=(rect.width*G.c.height)/(rect.height*G.c.width);
+  if(a>1.)G.u.mouse.x=(e.clientX-rect.left-.5*(rect.width-rect.width/a))*a/rect.width;
+  else G.u.mouse.x=(e.clientX-rect.left)/rect.width;
+  if(a<1.)G.u.mouse.y=1.-(e.clientY-rect.top-.5*(rect.height-rect.height*a))/(rect.height*a);
+  else G.u.mouse.y=1.-(e.clientY-rect.top)/rect.height;
+} 
+function touchStart(e){G.u.mouse.z=1.0;mouseMove(e);}
+function keyDown(e){G.u.key=e.keyCode;if(e.keyCode>=32 && e.keyCode<=40)e.preventDefault();}
+function keyUp(e){if(G.u.key==e.keyCode)G.u.key=0.0;}
+
+function sine(k){return Math.sin(k)*(1.-k/12000.)*.1;}//sound buffer fillers
+function thud(k){let t=k/12000.,st=Math.sqrt(t);return Math.sin(st*300)*(1.-st)*.5;}
+
+function setup(){//start up webgl and WebAudio and then wait for user
+  A([{samps:12000,fill:sine,sampleRate:48000},{samps:12000,fill:thud,sampleRate:48000}]);
+  G("c","fragShader",{fboScript:"fboShader",onFrame:frame,fps:40,
+   returnPixels:1,magFilter:G.LINEAR,minFilter:G.LINEAR,wrap:G.REPEAT,paused:true});
+}
+
+let hit=0.,lastScore=0.,nextNote=0.,N=[5,7,2,7,0,7,2,2];
+function frame(){if(G.paused)return; //called once per frame, handles music and fx
+  function scale(n){n=n%12;return !(n==1||n==3||n==6||n==8||n==10);}//white keys
+  function ntor(n){return Math.pow(2.,(n-67.)/12.);}//note to rate 1=440Hz
+  function play(n,t){//play the buffer pitched to a note at specified time offset
+    plAy(0,{rate:ntor(n),startTime:A.AC.currentTime+t});
+  }
+  G.u.user+=1.;
+  score.textContent=Math.floor(G.r[3])+" Balls:"+G.r[0];
+  if(!hit && G.r[2]>0.){hit=1.;plAy(1,{gain:G.r[2]});}
+  else if(hit && !G.r[2])hit=0.;
+  if(G.u.time>nextNote){//play notes to a song built up like an fbm
+    nextNote+=.25;
+    let tfn=nextNote-G.u.time;
+    j=Math.floor(G.u.time*4.);//4 bps
+    let n0=N[Math.floor(j/64)%8];//subliminal note
+    let n1=n0+N[Math.floor(j/8)%8];//whole note
+    let n2=n1+N[Math.floor(j/4)%8];//half
+    let n4=n2+12+N[Math.floor(j/2)%8];//quarter
+    let n8=n4+12+N[j%8];//eighth, if the note is within scale draw and play else draw rest
+    if(scale(n8))play(n8,tfn);
+    if(j%2==0 && scale(n4))play(n4,tfn);
+    if(j%4==0 && scale(n2))play(n2,tfn);
+    if(j%8==0 && scale(n1))play(n1,tfn);
+  }
+}
+function reset(){G.u.user=0.;lastScore=0.;}
+</script></head>
+<body onload="setup();" style="font-family:sans-serif">
+<b>Paintball</b> Score:<span id="score"></span><br>
+<canvas id="c" width="320" height="320"></canvas><br>
+<button onclick="togglePause();this.textContent=G.paused?'&gt':'||';">&gt</button>
+<button onclick="reset();">|&lt</button>
+<button onclick="fullScreen(c);">[FS]</button>
+Use pointer to bat the ball.
+</body></html>

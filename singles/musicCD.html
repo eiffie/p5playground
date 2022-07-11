@@ -1,0 +1,714 @@
+<!DOCTYPE html><html lang="en"><head><title>Music CD</title>
+<meta charset="UTF-8">
+<meta name="description" content="Client side WAV file generation.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="WAV,audio,file,utility,offline,HTML,javascript">
+<script id="fragShader" type="x-shader/x-fragment">
+precision mediump float;
+vec2 res=vec2(256);
+float DE(vec2 p){
+  float r=length(p),d=abs(r-.21)-.15;
+  d=smoothstep(0.01,0.0,d);
+  if(abs(r-.25)-.095<0.)d=abs(sin(r*400.));
+  return d;
+}
+void main(){
+  vec2 U=gl_FragCoord.xy/res-vec2(.5);
+  float d=max(0.5,DE(U)*(.9-(U.x+U.y)*0.2));
+  gl_FragColor=vec4(d*d*d-(U.x+U.y)*0.3,d*d,d,1.);
+}
+</script>
+<script id="Blues" type="x-shader/x-fragment">
+precision highp float;
+uniform float u;
+vec2 res=vec2(256);
+#define bps 6.0
+float rnd(float t){return fract(sin(mod(t,32.123)*32.123)*41.123);}
+vec2 nofs(float n){//the song's "random" ring
+  float r=0.5+0.5*rnd(floor(n));
+  n=mod(n,8.0);
+  if(n<1.0)n= 5.0;
+  else if(n<2.0)n= -5.0;
+  else if(n<3.0)n= -2.0;
+  else if(n<4.0)n= 0.0;
+  else if(n<5.0)n= 3.0;
+  else if(n<6.0)n= -6.0;
+  else if(n<7.0)n= -1.0;
+  else n=0.0;
+  return vec2(n,r);
+}
+float scale(float note){//throws out dissonant tones
+ float n=mod(note,12.);
+ if((n==1.)||(n==2.)||(n==4.)||(n==8.)||(n==9.)||(n==11.))note=0.;
+ return note;
+}
+float ntof(float n){return (n>0.0)?440.0 * pow(2.0, (n - 67.0) / 12.0):0.0;}
+const float PI=3.14159;
+float Cos(float a){return cos(mod(a,PI*2.));}
+float Sin(float a){return Cos(a+PI/2.);}
+struct instr{float att,fo,vibe,vphas,phas,dtun;};
+vec2 I(float n,float t,float bt,instr i){//note,time,bt 0-8,instrument
+ float f=ntof(scale(n));if(f<12.)return vec2(0.0);f-=bt*i.dtun;f*=t*PI*2.;
+ f=exp(-bt*i.fo)*(1.0-exp(-bt*i.att))*Sin(f+Cos(bt*i.vibe*PI/8.+i.vphas*PI/2.)*Sin(f*i.phas))*(1.0-bt*0.125);
+ n+=t;return vec2(f*Sin(n),f*Cos(n));
+}
+vec2 mainSound(float time){//att,fo,vibe,vphs,phs,dtun
+ instr epiano=instr(50.0,0.05,1.5,0.1,1.5,0.001);
+ instr sitar=instr(30.0,1.,8.0,0.0,0.12525,0.0025);
+ instr bassdrum=instr(300.0,1.0,4.0,0.76,1.0,0.5);
+ instr stick=instr(100.0,30.0,10.5,0.0,2.3131,1000.0);
+ instr bass=instr(20.0,0.2,2.0,0.0,0.5,0.005);
+ float tim=time*bps,b0,b1,b2,t0,t1,t2;
+ vec2 a=vec2(0.0);//accumulator
+ for(float i=0.;i<8.;i+=1.){//go back 8 beats and add note tails
+   b0=floor(tim);b1=floor(tim*0.5);b2=floor(tim*0.25);
+   vec2 n2=nofs(b2*0.125)+nofs(b2*0.25)+nofs(b2*0.5)+nofs(b2);//build notes on top of notes like fbm
+   vec2 n1=n2+nofs(b1),n0=n1+nofs(b0);
+   t0=fract(tim)+i;
+   if(mod(tim,512.)<256.)a+=I(n0.x+72.0,t0/bps+0.00008*sin(t0*7.),t0,sitar)*n0.y*.4;
+   if(mod(i,1.)<1.)a+=I(n0.x+93.0,time+Sin(t0*272.0),t0,stick)*n0.y;
+   if(mod(i,2.)<1.){//notes that play every 2 beats
+     t1=fract(tim*0.5)*2.0+i;
+     a+=I(n1.x+63.0,time,t1,epiano)*n1.y*.25;
+     a+=I(n1.x+60.0,time,t1,epiano)*n1.y*.25;
+     a+=I(n2.x+32.0,t1/bps+0.008*sin(t2*5.0),t1,bassdrum)*8.0;
+     a+=I(n2.x+31.0,t1/bps+0.008*sin(t2*6.0),t1,bassdrum)*8.0;
+     if(mod(i,4.)<1.){//every 4
+       t2=fract(tim*0.25)*4.0+i;
+       a+=I(n2.x+48.0,time,t2,bass)*n2.y*2.;
+     }
+   }
+   tim-=1.;//go back in time to find old notes still decaying
+ }
+ return clamp(a/48.0,-1.,1.);
+}
+void main(){
+  vec2 U=gl_FragCoord.xy-vec2(.5);
+  float time=131072./44100.*u+(U.y*256.+U.x)*2./44100.;
+  gl_FragColor=vec4(mainSound(time),mainSound(time+1./44100.));
+  if(gl_FragColor!=gl_FragColor)gl_FragColor=vec4(0);
+}
+</script>
+<script id="LittleExplosions" type="x-shader/x-fragment">
+precision highp float;
+uniform float u;
+float N(float i){i=mod(floor(i),8.);if(i<.5)return -1.;if(i<1.5)return -5.;
+ if(i>1. && i<5.)return 0.;if(i<5.5)return -5.;if(i<6.5)return 4.;return 7.;}
+float I(float n, float t, float d){
+  float n2=mod(n+48.,12.);float e=1.+sin(n)*.2-t*t*.5;
+  if((n2==1.)||(n2==4.)||(n2==6.)||(n2==8.)||(n2==11.))return 0.;//dorian
+  return pow(fract(t*50.*pow(2.,n/(12.-e*e*.05))),.5+t*t*d)*e;
+}
+vec2 Sound(float time){
+  float tim=time*7.,b=floor(tim),b3=fract(tim/8.),b2=fract(tim/2.),b1=fract(tim);
+  float n3=N(floor(b/128.)*2.)+N(b/8.);
+  float n2=n3+N(b/2.),n=n2+N(b);
+  return vec2(I(n,b1,200.)*.65-I(n2+3.,b2*1.005,30.)*.75,
+   -I(n+5.,b1*1.007,200.)*.5+I(n2,b2,20.)*.75-I(n3,b3*1.001,20.));
+}
+vec2 mainSound(float time){
+  return Sound(time)*.1+Sound(time-.075).yx*.08-Sound(time-.15)*0.05;
+}
+void main(){
+  vec2 U=gl_FragCoord.xy-vec2(.5);
+  float time=131072./44100.*u+(U.y*256.+U.x)*2./44100.;
+  gl_FragColor=vec4(mainSound(time),mainSound(time+1./44100.));
+}
+</script>
+<script id="EulerBeat" type="x-shader/x-fragment">
+precision highp float;
+uniform float u;
+#define d 512.
+#define pi 3.141592653
+#define bps 6.
+float scale(float note){float n2=mod(note, 12.);//shifts dissonant tones into scale
+ if((n2==1.)||(n2==3.)||(n2==6.)||(n2==8.)||(n2==11.))note=note-1.;
+ return note;
+}// mod of note number to frequency  from https://www.shadertoy.com/view/ldfSW2
+float ntof(float n){n=scale(n);return (n>0.)?440.0 * pow(2.0, (n - 67.0) / 12.0):0.0;}
+float spow(float n, float p){return sign(n)*pow(abs(n),p);}
+vec2 Sound(float n, float time, float p, float o){//(i*i*n)%d as a MIDI note shifted into a minor scale
+  float i=mod(floor(time*bps),d);//sin^p, o=MIDI note offset
+  i=floor(mod(i*mod(n*i,d),d)/12.);
+  return vec2(1.,1.+sin(time)*0.005)*spow(sin(ntof(i+o)*mod(time*pi,pi*2.)),p*fract(time*bps));
+}
+vec2 mainSound(float time){
+  return (Sound(7.,time,4.,36.)-Sound(11.,time+bps/3.,2.,36.).yx+fract(Sound(57.,time+bps/2.,1.,48.)*1.25)/3.)*.25;
+}
+void main(){
+  vec2 U=gl_FragCoord.xy-vec2(.5);
+  float time=131072./44100.*u+(U.y*256.+U.x)*2./44100.;
+  gl_FragColor=vec4(mainSound(time),mainSound(time+1./44100.));
+}
+</script>
+<script id="BrokenBuddha" type="x-shader/x-fragment">
+precision highp float;
+uniform float u;
+#define bps 2.5
+#define pi 3.14159
+float N(float n){n=mod(floor(n),8.);if(n==0.)return 0.;if(n==1.)return 4.;
+ if(n==2.)return 2.;if(n==3.)return 4.;if(n==4.)return 5.;if(n==5.)return 7.;
+ if(n==6.)return 9.;return 5.;
+}
+float scale(float note){//throws out dissonant tones 
+ float n2=mod(note,12.); 
+ if((n2==1.)||(n2==6.)||(n2==8.)||(n2==10.))note=-100.; 
+ return note; 
+}
+float ntof(float n){n=scale(n);return (n>0.)?440.0 * pow(2.0, (n - 67.0) / 12.0):0.0;} 
+vec2 rot(vec2 v, float a) {return cos(a)*v+sin(a)*vec2(v.y,-v.x);}
+vec2 I(float n, float t, vec3 p, vec4 e, vec4 d){
+  float bt=t,t2,t3,t4,f=ntof(n);
+  if(f==0.)return vec2(0);
+  t-=t*d.y*sin((d.w*pi+t)*pi*d.z);t3=t*d.x;
+  t2=fract(t*p.y*f);t4=fract(t3*p.y*f);
+  t=fract(t*f);t3=fract(t3*f);
+  float amp=abs(1.+cos(bt*e.z*pi)*e.w)*exp(-bt*e.y)*(1.-exp(-bt*e.x))*min(1.,100.-bt*100.);
+  return amp*rot(vec2(sin(pow(t,p.x)*pi*2.+pi*2.*p.z*sin(pow(t2,p.x)*pi*2.)),
+    sin(pow(t3,p.x)*pi*2.+pi*2.*p.z*sin(pow(t4,p.x)*pi*2.))),n+bt*pi*2.);
+}
+vec2 mainSound(float time){
+  float tim=time*bps;tim=mod(tim,256.);if(tim>80.)tim-=80.;if(tim>80.)tim+=48.+128.;
+  float bt=floor(tim),t=fract(tim);
+  float n1=N(bt/64.);
+  float n0=n1+N(bt/8.),n=n0+N(bt),n2=n0+N(bt/2.),n4=n0+N(bt/4.);
+  const vec4 dtn=vec4(1.014,0.005,1.,.5);
+  vec2 v=I(n+48.,t,vec3(1.-t*.5,1.,t),vec4(.25,1.,12.,t*.6),dtn)*.25;
+  
+  t=fract(tim/2.); 
+  float fo=pow(1.-t,20.0);
+  v+=I(n2+60.,t,vec3(1.-fo*.5,1.5,fo),vec4(1.,4.0,24.,t*.8),dtn);
+  
+  t=fract(tim/4.);
+  fo=pow(1.-t,20.0);
+  v+=I(n4+67.,t,vec3(1.-fo*.5,1.5,fo),vec4(1.,4.0,36.,t*.8),dtn);
+  
+  t=fract(tim/8.);
+  fo=pow(1.-t,20.0);
+  v+=I(n0+60.,t,vec3(1.-fo*.5,1.5,fo),vec4(1.,2.0,48.,t*.8),dtn);
+  return clamp(v*.4,-1.,1.);
+}
+void main(){
+  vec2 U=gl_FragCoord.xy-vec2(.5);
+  float time=131072./44100.*u+(U.y*256.+U.x)*2./44100.;
+  gl_FragColor=vec4(mainSound(time),mainSound(time+1./44100.));
+}
+</script>
+<script id="MillionCubeSolver" type="x-shader/x-fragment">
+precision highp float;
+uniform float u;
+float N(float n){n=mod(floor(n),8.);if(n==0.)return 0.;if(n==1.)return 7.;
+ if(n==2.)return -5.;if(n==3.)return 5.;if(n==4.)return -3.;if(n==5.)return 3.;
+ if(n==6.)return -1.;return 0.;
+}
+float freq(float n){
+  float m=mod(n,12.); 
+  if(m!=7. && mod(m,2.)>0.)return 0.;
+  return pow(2.,n/12.);
+}
+vec2 mainSound(float time){
+  float t=time*16.,a=0.;t*=1.+pow(fract(t/8.)*fract(t/2.),15.+20.*fract(t/256.));
+  float n=0.,d=32.;
+  for(int i=0;i<3;i++){
+    n+=N(t/d);
+    float f=float(i+1);
+    a+=fract(f*.3+freq(n)*t*f*6.6)-.5;
+    d/=4.;
+  }  
+  vec2 v=vec2(a,(fract(a*(floor(t/256.)/3.))-.5)*.75);
+  return clamp(v*.0025*time,0.,.25)/max(1.,time-160.);
+}
+void main(){
+  vec2 U=gl_FragCoord.xy-vec2(.5);
+  float time=131072./44100.*u+(U.y*256.+U.x)*2./44100.;
+  gl_FragColor=vec4(mainSound(time),mainSound(time+1./44100.));
+}
+</script>
+<script id="PotteryBarn" type="x-shader/x-fragment">
+precision highp float;
+uniform float u;
+#define bps 5.0 
+float rnd(float t){return fract(sin(mod(t,32.123)*32.123)*41.123);}
+vec2 nofs(float n){//the song's "random" ring
+  float r=0.5+0.5*rnd(floor(n));
+  n=mod(n,8.0);
+  if(n<1.0)n= 0.0;
+  else if(n<2.0)n= 2.0;
+  else if(n<3.0)n= 3.0;
+  else if(n<4.0)n= 4.0;
+  else if(n<5.0)n= 5.0;
+  else if(n<6.0)n= 3.0;
+  else if(n<7.0)n= 2.0;
+  else n=0.0;
+  return vec2(n,r);
+}
+float scale(float note){//throws out dissonant tones
+ float n2=mod(note,12.);
+ if((n2==2.)||(n2==3.)||(n2==6.)||(n2==9.)||(n2==11.))note=-100.;//Phrygian Major 
+ return note;
+}
+// note number to frequency  from https://www.shadertoy.com/view/ldfSW2
+float ntof(float n){return (n>0.0)?440.0 * pow(2.0, (n - 67.0) / 12.0):0.0;}
+const float PI=3.14159;
+float Cos(float a){return cos(mod(a,PI*2.));}
+float Sin(float a){return Cos(a+PI/2.);}
+struct instr{float att,fo,vibe,vphas,phas,dtun;};
+vec2 I(float n,float t,float bt,instr i){//note,time,bt 0-8,instrument
+ float f=ntof(scale(n));if(f<12.)return vec2(0.0);f-=bt*i.dtun;f*=t*PI*2.;
+ f=exp(-bt*i.fo)*(1.0-exp(-bt*i.att))*Sin(f+Cos(bt*i.vibe*PI/8.+i.vphas*PI/2.)*Sin(f*i.phas))*(1.0-bt*0.125);
+ n+=t;return vec2(f*Sin(n),f*Cos(n));
+}
+vec2 mainSound(float time){//att,fo,vibe,vphs,phs,dtun
+ instr epiano=instr(50.0,0.05,1.5,0.1,2.525,0.003);
+ instr sitar=instr(2.0,.2,12.0,0.0,0.525,0.0025);
+ instr bassdrum=instr(500.0,1.0,4.0,0.76,1.0,0.5);
+ instr stick=instr(500.0,1.0,10.5,0.0,2.3131,1000.0);
+ instr pluckbass=instr(500.0,2.0,1.5,0.0,0.125,0.005);
+ instr bass=instr(20.0,0.2,2.0,0.0,0.5,0.005);
+ float tim=time*bps,b0,b1,b2,t0,t1,t2;
+ vec2 a=vec2(0.0);//accumulator
+ for(float i=0.;i<8.;i+=1.){//go back 8 beats and add note tails
+   b0=floor(tim);b1=floor(tim*0.5);b2=floor(tim*0.25);
+   vec2 n2=nofs(b2*0.0625)+nofs(b2*0.25)+nofs(b2);//build notes on top of notes like fbm
+   vec2 n1=n2+nofs(b1),n0=n2+nofs(b0);
+   t0=fract(tim)+i;
+   a+=I(n0.x+60.0,time,t0,sitar)*n0.y/(1.+abs(n0.x)*.25);
+   if(mod(i,1.)<1.){
+     a+=I(n0.x+93.0,time+Sin(t0*372.0),t0,stick)*n0.y*.1*cos(t0*6.);
+     a+=I(n0.x+79.0,time,t0,sitar)*n0.y/(3.+abs(n0.x+7.));
+     a+=I(n0.x+84.0,time,t0,sitar)*n0.y/(3.+abs(n0.x+7.));
+   } 
+   if(mod(i,2.)<1.){//notes that play every 2 beats
+     t1=fract(tim*0.5)*2.0+i;
+     a+=I(n1.x+53.,time,t1,epiano)*n1.y*.1;
+     a+=I(n1.x+52.,time,t1,epiano)*n1.y*.1;
+     a+=I(n1.x+48.,time,t1,epiano)*n1.y*.1;
+     a+=I(n1.x+32.0,t1/bps+0.008*sin(t1*3.0),t1,bassdrum)*2.0;
+     a+=I(n2.x+31.0,t1/bps+0.008*sin(t1*2.0),t1,bassdrum)*2.0;
+     if(mod(i,4.)<1.){//every 4
+       t2=fract(tim*0.25)*4.0+i;
+       a+=I(n2.x+48.0,time,t2,bass)*n2.y;
+       a+=I(n2.x+52.0,time,t2,bass)*n2.y; 
+     }
+   }
+   tim-=1.;//go back in time to find old notes still decaying
+ }
+ return clamp(a/48.0,-1.,1.);
+}
+void main(){
+  vec2 U=gl_FragCoord.xy-vec2(.5);
+  float time=131072./44100.*u+(U.y*256.+U.x)*2./44100.;
+  gl_FragColor=vec4(mainSound(time),mainSound(time+1./44100.));
+}
+</script>
+<script id="PartyBox" type="x-shader/x-fragment">
+precision highp float;
+uniform float u;
+#define bps 8.0
+float rnd(float t){return fract(sin(mod(t,32.123)*32.123)*41.123);}
+vec2 nofs(float n){//the song's "random" ring
+  float r=0.5+0.5*rnd(floor(n));//random volume as well
+  n=mod(n,8.0);
+  if(n<1.0)n= -2.0;
+  else if(n<2.0)n= 0.0;
+  else if(n<3.0)n= 2.0;
+  else if(n<4.0)n= -4.0;
+  else if(n<5.0)n= 6.0;
+  else if(n<6.0)n= -5.0;
+  else if(n<7.0)n= -3.0;
+  else n=6.0;
+  return vec2(n,r);
+}
+float scale(float note){//throws out dissonant tones
+ float n2=mod(note,12.);
+ if((n2==1.)||(n2==2.)||(n2==4.)||(n2==6.)||(n2==8.)||(n2==9.)||(n2==11.))note=-100.;//pentatonic minor
+  return note;
+}
+// note number to frequency  from https://www.shadertoy.com/view/ldfSW2
+float ntof(float n){return (n>0.0)?440.0 * pow(2.0, (n - 67.0) / 12.0):0.0;}
+const float PI=3.14159;
+float Cos(float a){return cos(mod(a,PI*2.));}
+float Sin(float a){return Cos(a+PI/2.);}
+struct instr{float att,fo,vibe,vphas,phas,dtun;};
+vec2 I(float n,float t,float bt,instr i){//note,time,bt 0-8,instrument
+ float f=ntof(scale(n));if(f<12.)return vec2(0.0);f-=bt*i.dtun;f*=t*PI*2.;
+ f=exp(-bt*i.fo)*(1.0-exp(-bt*i.att))*Sin(f+Cos(bt*i.vibe*PI/8.+i.vphas*PI/2.)*Sin(f*i.phas))*(1.0-bt*0.125);
+ n+=t;return vec2(f*Sin(n),f*Cos(n));
+}
+vec2 mainSound(float time){//att,fo,vibe,vphs,phs,dtun
+ instr epiano=instr(20.0,0.05,1.5,0.1,0.505,0.001);//silly fm synth instruments
+ instr sitar=instr(30.0,0.1,4.0,0.0,0.2525,0.0025);
+ instr bassdrum=instr(500.0,1.0,4.0,0.76,1.0,0.5);
+ instr stick=instr(100.0,30.0,10.5,0.0,2.3131,1000.0);
+ instr pluckbass=instr(500.0,2.0,1.5,0.0,0.125,0.005);
+ instr bass=instr(20.0,0.2,2.0,0.0,0.5,0.005);
+ float tim=time*bps,b0,b1,b2,t0,t1,t2;
+ vec2 a=vec2(0.0);//accumulator
+ for(float i=0.;i<8.;i+=1.){//go back 8 beats and add note tails
+   b0=floor(tim);b1=floor(tim*0.5);b2=floor(tim*0.25);
+   vec2 n2=nofs(b2*0.125)+nofs(b2*0.5)+nofs(b2);//build notes on top of notes like fbm
+   vec2 n1=n2+nofs(b1),n0=n1+nofs(b0);
+   t0=fract(tim)+i;
+   a+=I(n0.x+72.0,time,t0,sitar)*n0.y*.5;
+   if(mod(i,1.)<1.)a+=I(n0.x+93.0,time+Sin(t0*272.0),t0,stick)*n0.y;
+   if(mod(i,2.)<1.){//notes that play every 2 beats
+     t1=fract(tim*0.5)*2.0+i;
+     a+=I(n1.x+67.0,time,t1,epiano)*n1.y;
+     a+=I(n1.x+65.0,time,t1,epiano)*n1.y;
+     a+=I(n1.x+60.0,time,t1,epiano)*n1.y;
+     a+=I(n1.x+36.0,time,t1,pluckbass)*n1.y*4.0;
+     if(mod(i,4.)<1.){//every 4
+       t2=fract(tim*0.25)*4.0+i;
+       a+=I(n2.x+48.0,time,t2,bass)*8.0;
+       a+=I(n2.x+32.0,t2/bps+0.008*sin(t2*5.0),t2,bassdrum)*12.0;
+       a+=I(n2.x+31.0,t2/bps+0.008*sin(t2*6.0),t2,bassdrum)*12.0;
+     }
+   }
+   tim-=1.;//go back in time to find old notes still decaying 
+ }
+ return clamp(a/32.0,-1.,1.);
+}
+void main(){
+  vec2 U=gl_FragCoord.xy-vec2(.5);
+  float time=131072./44100.*u+(U.y*256.+U.x)*2./44100.;
+  gl_FragColor=vec4(mainSound(time),mainSound(time+1./44100.));
+}
+</script>
+<script id="Bridge" type="x-shader/x-fragment">
+precision highp float;
+uniform float u;
+#define bps 5.0
+float rnd(float t){return fract(sin(mod(t,32.123)*32.123)*41.123);}
+vec2 nofs(float n){//the song's "random" ring
+  float r=0.5+0.5*rnd(floor(n));//random volume as well
+  n=mod(n,8.0);
+  if(n<1.0)n= 0.0;
+  else if(n<2.0)n= -3.0;
+  else if(n<3.0)n= -5.0;
+  else if(n<4.0)n= -7.0;
+  else if(n<5.0)n= -9.0;
+  else if(n<6.0)n= -5.0;
+  else if(n<7.0)n= -3.0;
+  else n=0.0;
+  return vec2(n,r);
+}
+float scale(float note){//throws out dissonant tones
+ float n2=mod(note,12.);
+ if((n2==1.)||(n2==4.)||(n2==6.)||(n2==9.)||(n2==11.))note=-100.;//minor
+ return note;
+}
+// note number to frequency  from https://www.shadertoy.com/view/ldfSW2
+float ntof(float n){return (n>0.0)?440.0 * pow(2.0, (n - 67.0) / 12.0):0.0;}
+const float PI=3.14159;
+vec2 wav(vec2 a){return cos(a*PI*2.);}
+float I(float tf, float wf, float s){// taken from jnorberg https://www.shadertoy.com/view/lt2GRy
+ vec2 w=vec2(0.125,1.125)+vec2(floor(wf));w*=2.0;
+ float p=fract(tf),sw=1.0-2.0*p,ip=1.0-p;
+ vec2 sinc=(wav(w*ip)-wav(w*p))/(1.0+s*ip);
+ return (sw+mix(sinc.x,sinc.y,fract(wf)))*0.5;
+}
+vec2 piano(float n, float t, float v){
+  float a=I(ntof(scale(n))*t/bps,4.-n*0.02-sin(t*t*PI*.5)*.5,.9)*v/(n*.1)*exp(-t*.5)*(1.-exp(-t*20.));
+  a+=I(ntof(scale(n)*1.003)*t/bps,4.1-n*0.02-sin(t*t*.6*PI)*.5,.9)*v/(n*.1)*exp(-t*.6)*(1.-exp(-t*21.));
+  float p=n/128.;
+  return vec2(a*(1.-p),a*p);
+}
+vec2 mainSound(float time){
+ float tim=time*bps,b0,b1,b2,t0,t1,t2;
+ tim=mod(tim,128.);
+ vec2 a=vec2(0.0);//accumulator
+ for(float i=0.;i<8.;i+=1.){//go back 8 beats and add note tails
+   b0=floor(tim);b1=floor(tim*0.5);b2=floor(tim*0.25);
+   vec2 n2=nofs(b2*0.0625)+nofs(b2*0.25)+nofs(b2);//build notes on top of notes like fbm
+   vec2 n1=n2+nofs(b1),n0=n2+nofs(b0);
+   t0=fract(tim)+i;
+   a+=piano(n0.x+72.,t0,n0.y);
+   if(mod(i,2.)<1.){//notes that play every 2 beats
+     t1=fract(tim*0.5)*2.0+i;
+     a+=piano(n1.x+60.0,t1,n1.y);
+     a+=piano(n1.x+64.0,t1,n1.y);
+     a+=piano(n1.x+65.0,t1,n1.y);
+     if(mod(i,4.)<1.){//every 4
+       t2=fract(tim*0.25)*4.0+i;
+       a+=piano(n2.x+48.0,t2,n2.y);
+       a+=piano(n2.x+52.0,t2,n2.y);
+     }
+   }
+   tim-=1.;//go back in time to find old notes still decaying
+ }
+ return clamp(a/24.0,-1.,1.);
+}
+void main(){
+  vec2 U=gl_FragCoord.xy-vec2(.5);
+  float time=131072./44100.*u+(U.y*256.+U.x)*2./44100.;
+  gl_FragColor=vec4(mainSound(time),mainSound(time+1./44100.));
+}
+</script>
+<script id="CrystalPlanet" type="x-shader/x-fragment">
+precision highp float;
+uniform float u;
+#define bps 6.0
+float rnd(float t){return fract(sin(mod(t,32.123)*32.123)*41.123);}
+vec2 nofs(float n){//the song's "random" ring
+  float r=0.5+0.5*rnd(floor(n));//random volume as well
+  n=mod(n,8.0);
+  if(n<1.0)n= 4.0;
+  else if(n<2.0)n= -6.0;
+  else if(n<3.0)n= -3.0;
+  else if(n<4.0)n= -6.0;
+  else if(n<5.0)n= 5.0;
+  else if(n<6.0)n= 0.0;
+  else if(n<7.0)n= 6.0;
+  else n=0.0;
+  return vec2(n,r);
+}
+float scale(float note){//throws out dissonant tones
+ float n2=mod(note,12.);
+ if((n2==2.)||(n2==3.)||(n2==6.)||(n2==9.)||(n2==10.))note=-100.;//double harmonic
+ return note;
+}
+// note number to frequency  from https://www.shadertoy.com/view/ldfSW2
+float ntof(float n){return (n>0.0)?440.0 * pow(2.0, (n - 67.0) / 12.0):0.0;}
+const float PI=3.14159;
+float Cos(float a){return cos(mod(a,PI*2.));}
+float Sin(float a){return Cos(a+PI/2.);}
+struct instr{float att,fo,vibe,vphas,phas,dtun;};
+vec2 I(float n,float t,float bt,instr i){//note,time,bt 0-8,instrument
+ float f=ntof(scale(n));if(f<12.)return vec2(0.0);f-=bt*i.dtun;f*=t*PI*2.;
+ f=exp(-bt*i.fo)*(1.0-exp(-bt*i.att))*Sin(f+Cos(bt*i.vibe*PI/8.+i.vphas*PI/2.)*Sin(f*i.phas))*(1.0-bt*0.125);
+ n+=t;return vec2(f*Sin(n),f*Cos(n));
+}
+vec2 mainSound(float time){//att,fo,vibe,vphs,phs,dtun
+ instr epiano=instr(50.0,0.1,2.5,0.1,1.501,0.001);//silly fm synth instruments
+ float tim=time*bps,b0,b1,b2,t0,t1,t2;
+ vec2 a=vec2(0.0);//accumulator
+ for(float i=0.;i<8.;i+=1.){//go back 8 beats and add note tails
+   b0=floor(tim);b1=floor(tim*0.5);b2=floor(tim*0.25);
+   vec2 n2=nofs(b2*0.125)+nofs(b2*0.25)+nofs(b2*0.5)+nofs(b2);//build notes on top of notes like fbm
+   vec2 n1=n2+nofs(b1),n0=n1+nofs(b0);
+   t0=fract(tim)+i;
+   a+=I(n0.x+84.0,time,t0,epiano)*n0.y*.5;
+   if(mod(i,2.)<1.){//notes that play every 2 beats
+     t1=fract(tim*0.5)*2.0+i;
+     a+=I(n1.x+75.0,time,t1,epiano)*n1.y;
+     a+=I(n1.x+72.0,time,t1,epiano)*n1.y;
+     if(mod(i,4.)<1.){//every 4
+       t2=fract(tim*0.25)*4.0+i;
+       a+=I(n2.x+60.0,time,t2,epiano)*n2.y;
+     }
+   }
+   tim-=1.;//go back in time to find old notes still decaying
+ }
+ return clamp(a/64.0,-1.,1.);
+}
+void main(){
+  vec2 U=gl_FragCoord.xy-vec2(.5);
+  float time=131072./44100.*u+(U.y*256.+U.x)*2./44100.;
+  gl_FragColor=vec4(mainSound(time),mainSound(time+1./44100.));
+}
+</script>
+<script>
+var gl,E,F,R,VP,P,PA,PAu,VS,FS,AC,buf,src,frame,tx,fbo,cdo,cd1;//need 60 frames x 262144 to fill 3min
+const HSIZE=44;
+const wavH=[0x52,0x49,0x46,0x46,0x64,0x7F,0xE4,1,0x57,0x41,0x56,0x45,0x66,0x6D,0x74,0x20,
+ 16,0,0,0,1,0,2,0,0x44,0xAC,0,0,0x88,0x58,1,0,4,0,16,0,0x64,0x61,0x74,0x61,0x40,0x7F,0xE4,1];//44
+function datToWav(){//from audio buffer
+  function hi(a){return ((32767*a)>>8)&0xFF;}
+  function lo(a){return (32767*a)&0xFF;}
+  let cd0=buf.getChannelData(0);cd1=buf.getChannelData(1);
+  const wav=new Uint8Array(31752044);//44 header, 31752000 data
+  if(!wav){alert("failed to create Uint8 typed array");return null;}
+  for(let i=0;i<HSIZE;i++)wav[i]=wavH[i];//header
+  let j=0;
+  for(let i=0;i<7938000;i++){
+    wav[HSIZE+j]=lo(cd0[i]);j++;
+    wav[HSIZE+j]=hi(cd0[i]);j++;
+    wav[HSIZE+j]=lo(cd1[i]);j++;
+    wav[HSIZE+j]=hi(cd1[i]);j++;
+  }
+  return wav;
+}
+function triggerDL(data,filename) {//handles octet-stream
+  if(!data)return;
+  var blb=new Blob([data], {type: 'application/octet-stream'});//shove it in a blob with a generic type
+  var a=document.createElement("a"),url=URL.createObjectURL(blb);
+  a.href=url;//create a link, click it and remove link and url
+  a.download=filename;//filename determines mime type
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },0);
+}
+function getShader(src, typ){
+  var shader=gl.createShader(typ);
+  gl.shaderSource(shader,src);
+  gl.compileShader(shader);
+  if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))alert(gl.getShaderInfoLog(shader));
+  return shader;
+}
+function script2Prog(f){
+  const vs="attribute vec3 position;void main(void){gl_Position=vec4(position,1.0);}";
+  var fs=document.getElementById(f).textContent;
+  FS=getShader(fs,gl.FRAGMENT_SHADER);
+  VS=getShader(vs,gl.VERTEX_SHADER);
+  var P=gl.createProgram();
+  gl.attachShader(P,VS);
+  gl.attachShader(P,FS);
+  gl.linkProgram(P);
+  if(!gl.getProgramParameter(P,gl.LINK_STATUS))alert("Could not initialise shader "+F);
+  gl.useProgram(P);
+  P.vertexPositionAttribute=gl.getAttribLocation(P,"position");
+  gl.enableVertexAttribArray(P.vertexPositionAttribute);
+  gl.vertexAttribPointer(P.vertexPositionAttribute, VP.itemSize, gl.FLOAT, false, 0, 0);
+  return P;
+}
+function loadPA(f){
+  if(PA){//clean up
+    gl.detachShader(PA,FS);gl.deleteShader(FS);
+    gl.detachShader(PA,VS);gl.deleteShader(VS);
+    gl.deleteProgram(PA);
+  }
+  PA=script2Prog(f);
+  PAu=gl.getUniformLocation(PA,"u");
+}
+function setup(){
+  gl=c.getContext("webgl", { antialias: false, depth: false, alpha: false } );
+  gl.getExtension('OES_texture_float');
+  gl.viewportWidth=c.width;
+  gl.viewportHeight=c.height;
+  R=new Float32Array(c.width*c.height*4);
+  VP=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, VP);
+  var vertices = [1.0,  1.0,  0.0, -1.0,  1.0,  0.0, 1.0, -1.0,  0.0, -1.0, -1.0,  0.0];
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices),gl.STATIC_DRAW);
+  VP.itemSize = 3; VP.numItems = 4;
+  P=script2Prog("fragShader");  
+  gl.clearColor(0.,0.,0.,1.);
+  AC=new (window.AudioContext || window.webkitAudioContext)();
+  buf=AC.createBuffer(2,7938000,44100);
+  if(!buf)alert("failed to create audio buffer, perform sanity check on samps and rate options");
+  cd0=buf.getChannelData(0);cd1=buf.getChannelData(1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,VP.numItems);
+  tx=gl.createTexture();//create fbo texture array
+  gl.bindTexture(gl.TEXTURE_2D,tx);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,c.width,c.height,0,gl.RGBA,gl.FLOAT,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  fbo=gl.createFramebuffer();
+  if(!fbo){alert("unable to create framebuffer object");return;}
+  gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
+  fbo.width=c.width;fbo.height=c.height;
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,tx,0);
+}
+function runPA(){//offscreen shader
+  gl.uniform1f(PAu,frame);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,VP.numItems);
+  gl.flush();gl.readPixels(0,0,256,256,gl.RGBA,gl.FLOAT,R);
+  for(let i=0;i<131072;i++){
+    cd0[frame*131072+i]=R[i*2]?R[i*2]:0;
+    cd1[frame*131072+i]=R[i*2+1]?R[i*2+1]:0;
+  }
+  frame++;
+  if(frame<60)window.setTimeout(runPA,1);
+  else if(action==1)playBuf();else saveBuf();
+}
+function loadBuf2(){
+  for(let i=0;i<131072;i++){
+    cd0[frame*131072+i]=F(frame*131072+i,0);
+    cd1[frame*131072+i]=F(frame*131072+i,1);
+  }
+  frame++;
+  if(frame<60)window.setTimeout(loadBuf2,1);
+  else if(action==1)playBuf();else {F=F.name;saveBuf();}
+}
+function playBuf(){
+  var t=0.;for(let i=4999;i<6000;i+=49)if(cd0[i]!=0){t=1.;break;}
+  if(t==0.){alert("Unable to create this preview due to device limitations. Try another song.");return;}
+  E.disabled=false;
+  try{src=AC.createBufferSource();src.buffer=buf;src.loop=true;
+   src.connect(AC.destination);src.start(0);}catch(e){alert(e);}
+}
+function saveBuf(){
+  var wav=datToWav(),filename=F+".wav";
+  E.disabled=false;
+  triggerDL(wav,filename);
+}
+function loadBuf(){
+  loadPA(F);
+  frame=0;
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D,tx);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,fbo);
+  gl.useProgram(PA);
+  runPA();
+}
+function ErectorSet(s,chan){
+  let time=s/44100.,m=65536*8,o=0;
+  for(let i=0;i<16;i++){
+    let t=s+i*i*9;
+    t*=(t>>14 & t>>(t%m>m-65536 && i>0?11:13) & t>>Math.max(0,Math.floor(0.25*i*Math.sin(time))));
+    if(chan>0)t=t>>1;
+    o+=(t%256)/(1024*(i/4+2));
+  }
+  o=(.5-(o*(.1+time*time*time*0.000001))%1.)*.8;
+  return o;
+}
+function preview(f){E.disabled=true;F=f;if(src)src.stop(0);action=1;loadBuf();}
+function download(f){E.disabled=true;F=f;if(src)src.stop(0);action=2;loadBuf();}
+function preview2(f){if(E.style.color==='red')return;E.style.color='red';F=f;if(src)src.stop(0);action=1;frame=0.;loadBuf2();}
+function download2(f){if(E.style.color==='red')return;E.style.color='red';F=f;if(src)src.stop(0);action=2;frame=0.;loadBuf2();}
+</script></head>
+<body onload="setup();" style="font-family:sans-serif">
+<b>Downloadable Music</b> CD quality recordings of generative music but nothing
+has actually been recorded. It is created on demand. "Downloads" are uncompressed
+.wav format (32mb) but not actually downloaded. Instead they are created with the client
+browser. I suggest previewing before downloading all the same.<br>
+<table><tr><td><table><tr><th>Title</th><th>Algorithm</th><th>Listening Options</th></tr>
+<tr><td>Blues</td><td>Sloth Canon</td><td>
+<button onclick="E=this;preview('Blues');">preview</button>
+<button onclick="E=this;download('Blues');">download</button>
+</td></tr>
+<tr><td>Euler Beat</td><td>(i*i*n)%j</td><td>
+<button onclick="E=this;preview('EulerBeat');">preview</button>
+<button onclick="E=this;download('EulerBeat');">download</button>
+</td></tr>
+<tr><td>Party Box</td><td>Sloth Canon</td><td>
+<button onclick="E=this;preview('PartyBox');">preview</button>
+<button onclick="E=this;download('PartyBox');">download</button>
+</td></tr>
+<tr><td>Bridge</td><td>Sloth Canon</td><td>
+<button onclick="E=this;preview('Bridge');">preview</button>
+<button onclick="E=this;download('Bridge');">download</button>
+</td></tr>
+<tr><td>Little Explosions</td><td>Sloth Canon</td><td>
+<button onclick="E=this;preview('LittleExplosions');">preview</button>
+<button onclick="E=this;download('LittleExplosions');">download</button>
+</td></tr>
+<tr><td>Pottery Barn</td><td>Sloth Canon</td><td>
+<button onclick="E=this;preview('PotteryBarn');">preview</button>
+<button onclick="E=this;download('PotteryBarn');">download</button>
+</td></tr>
+<tr><td>Broken Buddha</td><td>Sloth Canon</td><td>
+<button onclick="E=this;preview('BrokenBuddha');">preview</button>
+<button onclick="E=this;download('BrokenBuddha');">download</button>
+</td></tr>
+<tr><td>Million Cube Solver</td><td>Sloth Canon</td><td>
+<button onclick="E=this;preview('MillionCubeSolver');">preview</button>
+<button onclick="E=this;download('MillionCubeSolver');">download</button>
+</td></tr>
+<tr><td>Crystal Planet</td><td>Sloth Canon</td><td>
+<button onclick="E=this;preview('CrystalPlanet');">preview</button>
+<button onclick="E=this;download('CrystalPlanet');">download</button>
+</td></tr>
+<tr><td>Erector Set Menger</td><td>Byte Beats</td><td>
+<button onclick="E=this;preview2(ErectorSet);">preview</button>
+<button onclick="E=this;download2(ErectorSet);">download</button>
+</td></tr>
+</table></td><td><canvas id="c" width="256" height="256"></canvas></td></tr></table>
+<div id="log"></div></body></html>

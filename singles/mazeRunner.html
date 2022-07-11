@@ -1,0 +1,136 @@
+<!DOCTYPE html><html lang="en"><head><title>Maze Runner</title>
+<meta charset="UTF-8">
+<meta name="description" content="Build an AI to run through the maze.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="maze,HTML,javascript,canvas">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+*{font-family:monospace;color:#80D0FF;background-color:#202020;}
+</style>
+<script>
+let W=64,H=36,F=0;
+var G,maze=new Array(W*H),drop=new Array(W*H),p,fw,g;
+function v2Add(a,b){a.x+=b.x;a.y+=b.y;}
+function d2v(d){
+  if(d==1)return {x:1,y:0};
+  if(d==2)return {x:0,y:1};
+  if(d==3)return {x:-1,y:0};
+  if(d==4)return {x:0,y:-1};
+}
+function right(f){return (f%4)+1;}
+function left(f){return ((f+2)%4)+1;}
+function wall(f){
+  let i=p.y*W+p.x;
+  if(f==1&&((maze[dir(i,1)]==2)||(maze[dir(dir(i,1),2)]==4)))return 1;
+  if(f==2&&((maze[dir(i,2)]==1)||(maze[dir(dir(i,2),1)]==3)))return 1;
+  if(f==3&&((maze[i]==2)||(maze[dir(i,2)]==4)||p.x==0))return 1;
+  if(f==4&&((maze[i]==1)||(maze[dir(i,1)]==3)))return 1;
+  return 0;
+}
+function step(){
+  if(wall(fw)){f=-1;log("you ran into a wall");}
+  v2Add(p,d2v(fw));//check done!!
+}
+function set(a){drop[p.y*W+p.x]=a;console.log(a+","+drop[p.y*W+p.x]);}
+function get(d){return drop[dir(p.y*W+p.x,d)];}
+function drawWall(i){
+  let x=(i%W)*10,y=Math.floor(i/W)*10,d=maze[i];
+  let dx=(d==1?10:d==3?-10:0),dy=(d==2?10:d==4?-10:0);
+  G.moveTo(x,y);
+  G.lineTo(x+dx,y+dy);
+}
+function dir(i,d){return d==1?i+1:d==2?i+W:d==3?i-1:d==4?i-W:i;}
+function plot(p){
+  let x=p.x*10,y=p.y*10;
+  G.fillRect(x+2,y+2,6,6);
+}
+function log(s){msg.textContent=s;}
+function run(){
+  log("");
+  G.fillStyle="#804020";plot(p);
+  try{eval(ta.value);}catch(e){console.log(e);log(e.toString());F=-1;return;}
+  if(p.x<0 || p.y<0 || p.x>62 || p.y>34){log("out of bounds");F=-1;}
+  G.fillStyle="#FF8040";plot(p);
+  if(F>0)setTimeout(run,5);
+}
+function draw(){
+  G.clearRect(0,0,c.width,c.height);
+  G.beginPath();
+  for(let i=0;i<W*H;i++){
+    if(maze[i]==0){
+      let a=Math.floor(Math.random()*4.+1.);
+      if(maze[dir(i,a)])if(maze[dir(i,a)]==a||Math.random()>.7)maze[i]=a;
+    }else drawWall(i);
+  }
+  G.stroke();
+  if(F++<200)setTimeout(draw,0);
+  else {F=-1;plot(p);}
+}
+function reset(){
+  for(let i=0;i<W*H;i++){
+    if(i<W)maze[i]=1;
+    else if(i>W*(H-1))maze[i]=3;
+    else if(i%W==0)maze[i]=2;
+    else if(i%W==W-1)maze[i]=4;
+    else maze[i]=0;
+    drop[i]=0;
+  }
+  p={x:0,y:0};fw=1;
+  G.fillStyle='#FF8040';
+  F=0;draw();
+}
+function setup(){
+  G=c.getContext("2d");
+  G.strokeStyle='#80D0FF';
+  reset();
+}
+</script></head>
+<body onload="setup();" style="font-family:sans-serif;">
+<b>Maze Runner:</b> Code an AI to navigate the maze.<br>
+The code for the maze creation is based on this <a href="https://www.shadertoy.com/view/XdKGWK">shader by stb.</a>
+<table><tr><td colspan="2">
+<canvas id="c" width="640" height="360"></canvas></td></tr>
+<tr valign="top"><td>
+<button onclick="reset();">reset</button>
+<button onclick="F=1;run();">run</button>
+<button onclick="F=-1;run();">step</button>
+<span id="msg"></span><br>
+<textarea id="ta" name="ta" rows="15" cols="40" autocorrect="off" spellcheck="false"
+ autocapitalize="none" wrap="off" textprediction="false" style="line-height:15px">
+let bR=wall(right(fw));//wall to right?
+if(!bR){fw=right(fw);step();}//hug right
+else fw=left(fw);//turn left
+log(bR+","+fw);
+
+/* more direct route
+let d=get(0); 
+for(let i=0;i<3;i++){ 
+ if(!(wall(1)||(d&1))){let j=get(1); 
+  if(i==2||(i==1&&fw!=3)||(i==0&&fw!=3&&!(j&8))){ 
+   fw=1;set(d|1);step();break;}} 
+ if(!(wall(2)||(d&2))){let j=get(2); 
+  if(i==2||(i==1&&fw!=4)||(i==0&&fw!=4&&!(j&4))){ 
+   fw=2;set(d|2);step();break;}} 
+ if(!(wall(4)||(d&4))){let j=get(4); 
+  if(i==2||(i==1&&fw!=2)||(i==0&&fw!=2&&!(j&2))){ 
+   fw=4;set(d|4);step();break;}} 
+ if(!(wall(3)||(d&8))){let j=get(3); 
+  if(i==2||(i==1&&fw!=1)||(i==0&&fw!=1&&!(j&1))){ 
+   fw=3;set(d|8);step();break;}} 
+}
+*/
+</textarea>
+</td><td>
+Use these functions to navigate.<br>
+fw=forward: 1=right,2=down,3=left,4=up<br>
+wall(fw) is there a wall forward?<br>
+right(fw) the direction to the right<br>
+left(fw) the direction to the left<br>
+fw=right(fw) turn right<br>
+step() move forward 1 step<br>
+Extras:<br>
+W=width,H=height<br>
+set(a),get(d) drop clues<br>
+g=global variable for persistence<br>
+log() prints out vars<br>
+</td></tr></table></body></html>

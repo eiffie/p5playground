@@ -1,0 +1,732 @@
+<!DOCTYPE html><html lang="en"><head><title>Coin Games</title>
+<meta charset="UTF-8">
+<meta name="description" content="Games with coins.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="puzzles,coins,games,canvas,2d,javascript">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script>
+function fullScreen(el){//browser handles reverse on Esc
+ if( el.requestFullscreen ) el.requestFullscreen();
+ else if( el.msRequestFullscreen ) el.msRequestFullscreen();
+ else if( el.mozRequestFullScreen ) el.mozRequestFullScreen();
+ else if( el.webkitRequestFullscreen ) el.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);}
+function mouseDown(e){e.preventDefault();U.mP=1;}
+function mouseUp(e){e.preventDefault();U.mP=0;}
+function mouseMove(e){e.preventDefault();if(e.changedTouches)e=e.changedTouches[0];
+  var rect=c.getBoundingClientRect();
+  let a=(rect.width*c.height)/(rect.height*c.width);
+  if(a>1.)U.mX=(e.clientX-rect.left-.5*(rect.width-rect.width/a))*a;
+  else U.mX=e.clientX-rect.left;
+  if(a<1.)U.mY=(e.clientY-rect.top-.5*(rect.height-rect.height*a))/a;
+  else U.mY=e.clientY-rect.top;}
+function touchStart(e){U.mP=1;mouseMove(e);}
+function mouseClick(e){mouseMove(e);U.mP=1;game.clickCallBack();}
+function keyDown(e){U.key=e.keyCode;if(e.keyCode>=32 && e.keyCode<=40)e.preventDefault();}
+function keyUp(e){if(U.key==e.keyCode)U.key=0;}
+function addAnimEvents(){
+  c.removeEventListener('click',mouseClick,false);
+  c.addEventListener('mousedown',mouseDown,false);
+  c.addEventListener('mouseup',mouseUp,false);
+  c.addEventListener('mousemove',mouseMove,false);
+  c.addEventListener('touchstart',touchStart,false);
+  c.addEventListener('touchmove',mouseMove,false);
+  c.addEventListener('touchend',mouseUp,false);
+}
+function removeAnimEvents(){
+  c.addEventListener('click',mouseClick,false);
+  c.removeEventListener('mousedown',mouseDown,false);
+  c.removeEventListener('mouseup',mouseUp,false);
+  c.removeEventListener('mousemove',mouseMove,false);
+  c.removeEventListener('touchstart',touchStart,false);
+  c.removeEventListener('touchmove',mouseMove,false);
+  c.removeEventListener('touchend',mouseUp,false);
+}
+const imgH=new Image();
+imgH.src="data:image/gif;base64,R0lGODlhMgAyAPcAAP0cAggAAAgICBAICBAQCBAQEBgQEBgYGCEYGCEhGCEhISkhGCkhISkpITEpKTEx\
+MTkxMTk5MTk5OUIxMUI5MUI5OUJCOUJCQkJKSko5OUpCOUpCQkpKQkpKSlJCOVJCQlJKOVJKQlJKSlJS\
+SlJSUlpKQlpKSlpSSlpSUlpaSlpaUlpaWmNSSmNSUmNaSmNaUmNaWmNjUmNjWmtaUmtaWmtjUmtjWmtj\
+Y2tja2trY2tra3NjUnNjWnNjY3NrWnNrY3Nra3Nrc3Nza3Nzc3trWntrY3tra3trc3tzY3tza3tzc3tz\
+e3t7a3t7e4Rra4RzY4Rza4Rzc4Rze4R7Y4R7a4R7c4R7e4R7hISEc4SEe4SEhIx7Y4x7a4x7c4x7e4x7\
+hIyEc4yEe4yEhIyEjJR7a5R7c5SEc5SEe5SEhJSEjJSMe5SMhJSMjJSMlJSUhJSUjJSUlJyEc5yEe5yM\
+c5yMe5yMhJyMjJyUhJyUjJyUlJyUnJycjJyclJycnKWMe6WUc6WUe6WUhKWUjKWUlKWcjKWclKWcnKWl\
+lKWlnK2UhK2chK2cjK2clK2cnK2cpa2lnK2lpa2trbWljLWllLWlnLWlpbWtpbWtrb2lnL2lpb2tlL2t\
+pb2trb21rb21tb29tca1nMa1pca1rca1tca9rca9tca9vcbGxsbOzs61pc69pc69rc69vc7Gvc7Gxs7O\
+zta9rdbOxtbOztbWztbW1t7Otd7Wzt7W1t7e1ufe3ufn3ufn7///////////////////////////////\
+////////////////////////////////////////////////////////////////////////////////\
+////////////////////////////////////////////////////////////////////////////////\
+////////////////////////////////////////////////////////////////////////////////\
+/yH5BAEAAAAALAAAAAAyADIAAAj+AAEIHEiwoMGDCBMqXCigwIUbYlrJknUrFy42WlYUWMgxoYAOWgY9\
+GtTFDpoiVaBEsVOyky0+KA50nAngAptHds54GVQHzZowm+xUqULFDqEkVTq1EqOAZsICNs6cITSoU55R\
+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\
+FwyhCU0QQg6aALULOEDVAQEAOw==";
+const imgT=new Image();
+imgT.src="data:image/gif;base64,R0lGODlhMgAyAPcAAArvJggAAAgIAAgICBAICBAQCBgQCBgYECEQCCEQECEYECkYECkhEDEhGDEpGDEx\
+KTkhGDkpGDkpITkxITk5KUIpGEIpIUIxIUoxIUoxKUo5IUo5KVIxIVI5IVI5KVI5MVo5IVo5KVo5MVpC\
+KVpCMWM5IWM5KWNCKWNCMWNKMWNKOWNSOWtKMWtKOWtSMWtSOWtSQmtjSnNKKXNKMXNKOXNSMXNSOXNS\
+QnNaOXNaQnNrSntSMXtSOXtSQntaOXtaQntjQoRSMYRSOYRaOYRaQoRjOYRjQoRjSoRrUoxaQoxjOYxj\
+QoxjSoxrQoxrSoxrUpRjOZRjQpRjSpRrQpRrSpRrUpRzUpxjOZxjQpxrSpxrUpxzQpxzSpxzUpxzWpx7\
+UpyEY6VjOaVrSqVzSqVzUqVzWqV7UqV7WqWUa61zSq17Sq17Uq17Wq17Y62EUq2EWq2EY62MY62Ua7V7\
+SrV7UrWEUrWEWrWEY7WMUrWMWrWMY72EUr2EY72MUr2MWr2MY72Ma72UWr2UY72Ua72Uc72ca8aEUsaM\
+WsaMY8aMa8aUUsaUWsaUY8aUa8aUc8acc86EUs6MWs6UWs6UY86Ua86cY86ca86cc861jNaUWtaUY9ac\
+WtacY9aca9acc9alY9ala9alc9ale96UWt6cWt6cY96ca96lY96la96lc96le96ta96tc96te97OnOel\
+a+elc+eta+etc+ete+e1e+e1hOe1jO+cWu+la++ta++tc++1c++1e++1hO+9hO+9jO/OlPelY/e1a/e1\
+c/e1e/e9e/e9hPe9jPfGhPfGjPfOlP+tc/+9e/+9hP+9jP/GhP/GjP/GlP/OjP/OlP/WjP/WlP/elP/e\
+nP/nnP/npf/vpf/vrf/3rf//vf//////////////////////////////////////////////////////\
+////////////////////////////////////////////////////////////////////////////////\
+/yH5BAEAAAAALAAAAAAyADIAAAj+AAEIHEiwoMGDCBMqXDhggIQVXh7VqtXqkZ4jKi4MWMhRIQMSb1oZ\
+q1ZNmi9atHxJqzbNWConFwx0nAngApBBrXwVKyar2DNptHr65EnrmbFQOQ7QTCjhZipZPaVJ22nMmCxf\
+z1DxlNUs1q5i0kK92LiUoBxgqVLRkiqt2bNnxYz99FWtZ6xi14rRakaLl7EzE8oKjIEWlS5Z0q6t3FvM\
+Uiiouz7JQsVLGlSoPI21WlF2gx5UsnTpagbW5d5nvHapXh0rluHJb6WZ8vULzIaZG+xYivXzbTNepHf+\
+3hVadejWqDhRPpzc17ZkHS+8sRS6mMq3cGntLEY8lmioulD+iXdt2LC0XdK6/VrIwExy7aG2yy/Gi7ss\
+XodluY41Gbl4Xlo9U003OiREQBPU6eXLfTvxUt+DxMkyTTa0iGeYLq1B5dozFVqCyjW1NIDQBoJ0woks\
+KN23S2oOzidLJb5k8wx5htHIiWTiVVNMNm+QRdAAZijHi4ehHbZiMW69VUwq5YVSDTZTkcfJlDdyIg1c\
+ukiTzW0FbTAlaJNdeJhPUlllildQoTJJKHRB+YxquRSjCyeucYJaNo8oNZAAQXIySSycmGKKedhVaNhq\
+3R02ZSh7ScXTM5xIciNizWTzAkENfMkTlZJOMgknT6W2mmhfiveJn59Gioo0mlDph3L+2ejhowpTTmbJ\
+lJKi4loqvDymyy7PyBIhaIeiYoqnnPiBWKuSHNLqLsZAE5hAb3BSiW6oSjKJeJj1VZ+wW3nFiS7FeCeN\
+hbJUI8m6ksiSii60WCoQA5W8qsuxfkjixySXcTVcg9zpyh9PYBajHCrVLLLuvmDJks0ZAgCggYlqMqKv\
+H3Yomx9+HJPWDFe8XIZfeMlRR4sfi6QqFXqeEACAEamYGF6yftRRx6eDkhtyM3LtpFMzvvyGIoDK+WKJ\
+H6+C9swsPxljAQBmUKdmckjXPOXRb5hhBhdUdM3EDz4wwYQRRjDR9Rt/ODbNNPseDBZbHgDgxxp1tH1x\
+HWNMsQT+FWZzcccZa9jxxx9ndPFG1lx4YYYTZPO9Bi2McGJJJZaYhljcnXDBCSN0r6H1GEvsbUYXXawx\
++B+Co37G4GcA/scba7wxyOCDTjK4H4pZJs0IAKTCxBB+MLI1FVxwITYTTnhBhRd32GGHGXqwfgccb5xh\
+xhvO2zHIJJZ4ivrhX5ih2zScyVI2E01M0XX6QwxRNt9UkF644Hq0bj/aWZ9xx+1/3PFG9H+YHSOugQYA\
+tKJxUxjD86Ywth+4T2xl84LyutC6KnjhDFZQ3B0k6IU2/AGA1VsdIGZniWwMAgCD0APZjDCFKTBCbEPw\
+wRBsAAQg/MAIRxjb8rzAhCqU4Qn+T3ACEK1QBTjUz39n8ALaoqeHyiEBAG94RA5+sIQxmM0GQ/iBDcb2\
+ghf4AAg3sMEWj9CDF5jtgl3goROsAIdH2OFwZlCiHqb3huRcAAA/EMsLhmCG4OlBD1xonxEUF0LlVaER\
+jbBD/P7ACNRJ0AyrG5wnHgGIMxxOD2/QRR1EdAFjdNEHxTNDHaS2Bi5cL2sSPB4EmQCHFHqBcGcIxSD+\
+F0CJtI56uqDCRhrQCiq0oAVds0MduDYEJrTABzbw4hC6sEUmdMEIQMgBEJiQRCucwQ6ekCUczlCLQfxC\
+D9v0QyxaMBC0vaAFU/ACMLUYNhTEDwXt60IXt1iFGrbOC1X+qALh/pBNPXihEZ74BSAwOQlD3FEgKpiF\
+DeDJTCO8AAUzGEILiGAEEtggbC8ggUXPcIMw2qALVaBC/f7wiFCEQjcBJQT1XoEFHx3AElQYQQuMR4Ue\
+QJQINmgBE1AgRiqsYAUTBUIX92cHJzChDEqspCcsYQlR/IIQ+5MEBwqSg1C0AAVZ6AITbkACnZIABUZw\
+Z9dWcAQqVPQGK/jqDZjghS7sr3/7e0QrnnqHV6RBAQVRgBtbMAMm+EAFHhjBCDIg0xeIEQUPHYEKUKCC\
+LsIACDi0oCG9oIdB1MIWgJgELk5wEBWE4gcoGMEJSDACDWjAA6hl7GITO4LAjkCjZqz+AhP08IjD2eEO\
+jajFI/4wDCjoqSAFoKwKBPtLDUzguBYIwWA1INOrtsCwP7UBFeJohv5R4QyDEEUr/oAKWhz0IApo3VdV\
+oAISbAC1HtAAClCgUTHmtAVCfYERphs9RjTSDo/Y7SSm4YqFTMASRmjBcF+7XhJ4gAMo+KUPnvsCIFAB\
+CFUgmxL3NwjHUHISO6IARy5gCSCooAXvLfAGNPBcJkQTCG41q4OVKDhEzu4Qt8CEhqODuhAX2MAeACYV\
+jnAE8Ql1kF1ocSNQd4hR7ACvNLGA837wywR/uLweMFtZn2lRJnAhcKlbgyEgMYMCCEYBTFBkiK+K4xaU\
+zQYkaHBt/AJnvTXMAQsc8LJgAFCAEYzhD1x4L5lR4AExekAFNjCCE7hGhTGkIQohQPKcB3KAEUzXDFTQ\
+onsnfUMmLGEKiI7YohFSgAbM1AycK13pqDCENUxhCEI4AQM2PRMFNMACpjXtBSxgAQgouiwBAQA7";
+var G,U={key:0,mX:0,mY:0,mP:0},game=0,paused=0,R=50;
+function randi(i){return Math.floor(Math.random()*i);}
+function gameNext(){game.nextLevel();}
+function clear(){G.clearRect(0,0,G.canvas.width,G.canvas.height);}
+function circle(x,y,r,f){G.beginPath();G.arc(x,y,r,0.,Math.PI*2);if(f)G.fill();else G.stroke();}
+function coin(x,y,h){G.drawImage((h==1?imgH:imgT),x-R/2,y-R/2);}
+function line(x1,y1,x2,y2){G.beginPath();G.moveTo(x1,y1);G.lineTo(x2,y2);G.stroke();}
+function length(x,y,i,j){return Math.sqrt((x-i)*(x-i)+(y-j)*(y-j));}
+function dot(x,y,i,j){return x*i+y*j;}
+class menu{
+  animated=false;A=0;
+  constructor(){this.A=["patternMatch","triJump","mrMind","hexConnect","checkers",
+                        "sevenUp","coinJump","coinStack","coinToss","othello",
+                        "coinSlide","coinCorral","coinDrop","coinMatrix","",
+                        "","","","","", "","","","",""];}
+  rules(){return "Click image to select game.";}
+  clickCallBack(){let i=Math.floor(U.mY/100)*5+Math.floor(U.mX/100);console.log(i+","+this.A[i]);newGame(this.A[i]);}
+  nextLevel(){}//more games??
+  startGame(){
+    clear();
+    for(let i=100;i<500;i+=100){line(i,0,i,G.canvas.height);line(0,i,G.canvas.width,i);}
+    for(let i=0;i<3;i++){circle(25+i*20,40,10,1);circle(35+i*20,60,10,1);}//coins
+    for(let i=0;i<7;i++){let a=i/7*Math.PI*2;circle(50+Math.cos(a)*35,150+Math.sin(a)*35,10,1);}//7up
+    for(let y=0;y<4;y++)for(let x=0;x<y+1;x++)circle(150+20*(x-y/2),20+20*y,10,1);//triJump
+    for(let i=0;i<64;i++)circle(215+10*(i%8),15+10*Math.floor(i/8),5,(i%8<6+Math.floor(Math.sin(Math.floor(i/8))*2)?1:0));
+    for(let x=0;x<6;x++)circle(125+x*10,180,5,1);//coinJump
+    circle(30,270,5,1);circle(70,240,5,1);circle(50,260,5,1);//slide
+    circle(150,250,49,0);circle(130,230,5,1);circle(170,240,5,1);circle(160,270,5,1);line(102,255,196,245);//corral
+    for(let i=0;i<8;i++)circle(205+randi(95),205+randi(95),5,1);//drop
+    for(let y=0;y<6;y++)for(let x=0;x<6;x++)if(x!=y && x!=5-y)circle(312+x*15,212+y*15,7,1);//matrix
+  }
+};
+class patternMatch{
+  animated=true;R=50;DX=R/2;DY=R*1.76/2;
+  MX=0;MY=0;PX=0;PY=0;TX=0;TY=0;mx=0;my=0;iTurns=0;iShape=0;iBest=0;iSel=0;mo=0;sN=0;
+  constructor(){}
+  rules(){return "Slide the coins in the middle to match the pattern in the lower right. "+
+   "Coins can't slide over each other and must be touching 2 others when released. "+
+   "The pattern may face any direction.";}
+  nextLevel(){this.iShape=(this.iShape+1)%12;this.startGame();}
+  startGame(){
+    this.MX=[6,8,10,7,9,11]; this.MY=[4,4,4,5,5,5];
+    this.iTurns=0;this.iSel=-1;this.mo=0;U.mP=0;
+    if(this.iShape==0){     this.PX=[6,7,9,10,7,9];  this.PY=[4,3,3,4,5,5];this.TX=[6,7,9,10,7,9];  this.TY=[4,3,3,4,5,5];this.iBest=3;this.sN="Donut";}
+    else if(this.iShape==1){this.PX=[0,2,4,6,8,10];  this.PY=[4,4,4,4,4,4];this.TX=[1,3,5,7,9,11];  this.TY=[5,5,5,5,5,5];this.iBest=6;this.sN="Line";}
+    else if(this.iShape==2){this.PX=[10,9,10,9,10,9];this.PY=[0,1,2,3,4,5];this.TX=[11,9,8,6,5,3];  this.TY=[5,5,4,4,3,3];this.iBest=5;this.sN="Rope";}
+    else if(this.iShape==3){this.PX=[2,3,5,6,8,9];   this.PY=[4,5,5,4,4,5];this.TX=[6,7,9,10,12,13];this.TY=[4,5,5,4,4,5];this.iBest=3;this.sN="Inchworm";}
+    else if(this.iShape==4){this.PX=[4,6,8,5,9,9];   this.PY=[4,4,4,5,3,5];this.TX=[7,7,8,10,11,12];this.TY=[5,3,4,4,5,4];this.iBest=2;this.sN="Dog";}
+    else if(this.iShape==5){this.PX=[6,8,10,7,9,6];  this.PY=[4,4,4,5,3,2];this.TX=[7,7,8,9,10,11]; this.TY=[5,3,6,5,4,5];this.iBest=3;this.sN="Space Invader";}
+    else if(this.iShape==6){this.PX=[5,4,5,9,10,9];  this.PY=[3,4,5,3,4,5];this.TX=[7,6,7,11,12,11];this.TY=[5,4,3,5,4,3];this.iBest=5;this.sN="Parens";}
+    else if(this.iShape==7){this.PX=[0,1,2,5,8,11];  this.PY=[2,1,2,3,4,5];this.TX=[11,8,5,2,1,0];  this.TY=[5,4,3,2,1,2];this.iBest=9;this.sN="Asteroids";}
+    else if(this.iShape==8){this.PX=[3,6,5,5,7,9];   this.PY=[3,4,3,5,5,5];this.TX=[7,9,11,8,7,5];  this.TY=[5,5,5,4,3,3];this.iBest=3;this.sN="Swimmer";}
+    else if(this.iShape==9){this.PX=[9,8,9,8,6,5];   this.PY=[5,4,3,2,2,3];this.TX=[11,9,8,6,5,6];  this.TY=[5,5,4,4,5,6];this.iBest=3;this.sN="Question";}
+    else if(this.iShape==10){this.PX=[5,7,9,5,7,9];  this.PY=[5,5,5,3,3,3];this.TX=[7,9,11,7,9,11]; this.TY=[5,5,5,3,3,3];this.iBest=5;this.sN="Equals";}
+    else if(this.iShape==11){this.PX=[5,6,7,8,4,9];  this.PY=[5,4,3,2,2,5];this.TX=[7,8,9,10,6,11]; this.TY=[7,6,5,4,4,7];this.iBest=6;this.sN="Percent";}
+    msg.textContent=this.sN+" Turns:0 Best:"+this.iBest;
+    msg.style.color='green';
+  }
+  testOverlap(x,y){for(let i=0;i<6;i++)if(i!=this.iSel && x==this.MX[i] && y==this.MY[i])return 1;return 0;}
+  findxy(x,y){for(let i=0;i<6;i++)if(x==this.MX[i] && y==this.MY[i])return i;return -1;}
+  testTouch(x,y){
+    let tch=0,tx=x,ty=y,i=this.findxy(tx,ty);
+    if(i>-1 && i!=this.iSel)return 0;//on top of another!
+    tx-=2;i=this.findxy(tx,ty);if(i>-1 && i!=this.iSel)tch++;
+    tx+=4;i=this.findxy(tx,ty);if(i>-1 && i!=this.iSel)tch++;
+    tx-=3;ty-=1;i=this.findxy(tx,ty);if(i>-1 && i!=this.iSel)tch++;
+    tx+=2;i=this.findxy(tx,ty);if(i>-1 && i!=this.iSel)tch++;
+    ty+=2;i=this.findxy(tx,ty);if(i>-1 && i!=this.iSel)tch++;
+    tx-=2;i=this.findxy(tx,ty);if(i>-1 && i!=this.iSel)tch++;
+    if(tch!=2)this.err(2);
+    return tch;
+  }
+  turn(){
+    this.iTurns=this.iTurns+1;
+    if(this.iTurns==this.iBest){
+      let n=0;
+      for(let i=0;i<6;i++)for(let j=0;j<6;j++)if(this.MX[i]==this.TX[j] && this.MY[i]==this.TY[j])n++;
+      if(n<6){n=0;for(let i=0;i<6;i++)for(let j=0;j<6;j++)if(this.MX[i]==17-this.TX[j] && this.MY[i]==9-this.TY[j])n++;}
+      if(n==6){setTimeout(gameNext,1000);this.err(3);return;}
+      msg.style.color='red';
+    }else this.err(0);
+  }
+  err(e){
+    msg.textContent=this.sN+" Turns:"+this.iTurns+" Best:"+this.iBest;
+    msg.textContent+=e==0?"":e==1?" Sliding over coins not allowed!":
+                             e==2?" Not touching exactly 2!":
+                                  " YOU MATCHED BEST SCORE!";}
+  loop(){
+    function sx(x){return x*25+25;}
+    function sy(y){return y*44+44;}
+    var ox=U.mX,oy=U.mY;
+    var x=Math.floor(ox/25-.5),y=Math.floor(oy/44-.5);
+    if(((x%2)<.5)^((y%2)<.5))x-=1;//((x%2)<.5)^(
+    if(U.mP>0){
+      if(this.mo>0){if(this.testOverlap(x,y)==0){this.mx=ox;this.my=oy;this.err(0);}else {this.iSel=-1;this.err(1);}}
+      else {this.iSel=this.findxy(x,y);this.mx=ox;this.my=oy;if(this.iSel>-1)this.mo=1;}
+    }else if(this.mo>0){
+      if(this.iSel>-1)if(this.testTouch(x,y)==2 && !(this.MX[this.iSel]==x && this.MY[this.iSel]==y)){this.MX[this.iSel]=x;this.MY[this.iSel]=y;this.turn();}
+      this.iSel=-1;this.mo=0;
+    }
+    clear();
+    G.fillStyle='#7f7f7f';
+    for(let i=0;i<6;i++)circle(sx(this.PX[i])+188,sy(this.PY[i])+212,this.DX,1);
+    G.fillStyle='#Af5f1f';
+    for(let i=0;i<6;i++)if(i!=this.iSel)coin(sx(this.MX[i]),sy(this.MY[i]),1);
+    if(this.iSel>-1)coin(this.mx,this.my,1);
+  }
+};
+class mrMind{
+  animated=false;iTurn=0;iGames=0;A=0;B=[1,1,1,1];sel=0;
+  constructor(){this.A=new Array(64);}
+  rules(){return "Guess the up-sides of 4 hidden coins. Tails means correct side. Heads means correct side and placement.";}
+  chkDone(){
+    let f=0,h=0,y=this.iTurn*8,C=new Array(4),D=new Array(4);
+    for(let i=0;i<4;i++){C[i]=this.B[i];D[i]=C[i];if(this.A[y+i])f++;}
+    if(f!=4)return;
+    for(let i=0;i<4;i++)if(this.A[y+i]===C[i]){this.A[y+4+h]=1;h++;C[i]=0;D[i]=0;}
+    if(h==4){msg.textContent="mrMind Winner!";setTimeout(gameNext,2000);}
+    else{
+      for(let i=0;i<4;i++)if(C[i])for(let j=0;j<4;j++)if(D[j])
+       if(this.A[y+i]===D[j]){this.A[y+4+h]=-1;h++;D[j]=0;break;}
+      this.iTurn++;
+    }
+  }
+  clickCallBack(){
+    let x=Math.floor(U.mX/R-.5),y=Math.floor(U.mY/R-.5);
+    if(y<0)this.sel=x<1?1:-1;
+    else if(this.sel && y==this.iTurn && x>=0 && x<4){
+      this.A[y*8+x]=this.sel;this.chkDone();
+    }this.render();
+  }
+  render(){
+    clear();
+    let x,y;
+    for(let i=0;i<64;i++){
+      x=i%8;y=Math.floor(i/8);
+      if(this.A[i])coin(x*R+R,y*R+R,this.A[i]);else if(x<4)circle(x*R+R,y*R+R,R/2,0);
+    }
+    coin(R,0,1);coin(2*R,0,-1);
+    if(this.sel)circle(R*3/2-this.sel*R/2,0,R/2,0);
+    //for(let i=0;i<4;i++)coin((i+5)*R,0,this.B[i]);
+  }
+  nextLevel(){
+    this.iGames++;this.iTurn=0;this.startGame();
+  }
+  startGame(){
+    G.strokeStyle="#00FF00";G.lineWidth=3;
+    this.sel=0;for(let i=0;i<4;i++){this.B[i]=randi(2);if(this.B[i]===0)this.B[i]=-1;}
+    for(let i=0;i<64;i++)this.A[i]=0;
+    this.render();
+  }
+};
+class sevenUp{
+  animated=false;iSel=0;A=0;sel=0;COINS=0;FLIP=0;
+  constructor(){this.A=new Array(16);this.sel=new Array(16);this.COINS=7;this.FLIP=3;}
+  rules(){return "Flip all the coins to tails.";}
+  flip(){
+    if(this.iSel!=this.FLIP)return 0;
+    for(let i=0;i<this.COINS;i++){if(this.sel[i])this.A[i]=-this.A[i];this.sel[i]=0;}
+    this.iSel=0;return 1;
+  }
+  chkDone(){
+    let j=0;for(let i=0;i<this.COINS;i++)if(this.A[i]<0)j++;
+    if(j==this.COINS){this.render();msg.textContent="7-Up Winner!";setTimeout(gameNext,1000);}
+  }
+  clickCallBack(){
+    let R=50,x=U.mX-250,y=U.mY-250;
+    let a=Math.atan2(y,x);
+    if(a<-3.1416/this.COINS)a=6.283+a;
+    let i=Math.floor(a/6.283*this.COINS+3.1416/this.COINS)%this.COINS;
+    this.sel[i]=1-this.sel[i];
+    this.iSel+=this.sel[i]==1?1:-1;
+    if(this.flip())this.chkDone();
+    this.render();
+  }
+  render(){
+    clear();
+    let x,y,a,R=50,c=250;
+    for(let i=0;i<this.COINS;i++){
+      a=6.283/this.COINS*i;
+      x=c+Math.cos(a)*R*2.0;y=c+Math.sin(a)*R*2.0;
+      coin(x+1,y+1,this.A[i]);
+      if(this.sel[i])circle(x,y,R/2,0);
+    }
+  }
+  nextLevel(){
+    this.COINS=randi(10)+4;this.FLIP=randi(Math.floor(this.COINS/2))*2+1;
+    if(this.FLIP==1)this.FLIP=3;this.startGame();
+  }
+  startGame(){
+    G.strokeStyle="#00FF00";G.lineWidth=3;
+    this.iSel=0;
+    for(let i=0;i<this.COINS;i++){this.A[i]=1;this.sel[i]=0;}
+    this.render();
+  }
+};
+class triJump{
+  animated=false;iTurns=0;A=0;sel=0;B=0;
+  constructor(){this.A=new Array(100);}
+  rules(){return "Choose a coin to remove. Then checkers-jump coins until one remains.";}
+  clickCallBack(){
+    let y=Math.floor(U.mY/R-.5);
+    let x=Math.floor((U.mX-(this.B-y)*R/2)/R+.5);
+    if(x<0 || y<0 || x>=this.B || y>=this.B)return;
+    if(this.sel==-2){
+      this.A[this.I(x,y)]=0;this.sel=-1;
+    }else if(this.sel==-1){
+      if(this.A[this.I(x,y)]>0)this.sel=this.I(x,y);
+    }else{
+      if(this.jump(this.sel,this.I(x,y))){this.sel=-1;this.chkDone();}
+      else this.sel=-1;
+    }
+    this.draw();
+  }
+  draw(){
+    let x,y;
+    clear();
+    for(let i=0;i<this.B*this.B;i++)if((i%this.B)<=Math.floor(i/this.B)){
+      x=(i%this.B)*R;
+      x+=(this.B-Math.floor(i/this.B))*R/2;
+      y=Math.floor(i/this.B+1)*R;
+      if(this.A[i])coin(x,y,1);
+      else circle(x,y,R/2,0);
+      if(this.sel==i){G.strokeStyle='#00FF00';circle(x,y,R/2,0);G.strokeStyle='#808080';}
+    }
+  }
+  I(x, y){return x+y*this.B;}
+  jump(a, b){
+    if(a<0 || b<0 || a>=this.B*this.B || b>=this.B*this.B || a==b)return 0;
+    if(this.A[a]==0 || this.A[b]!=0)return 0;
+    let x=a%this.B,y=Math.floor(a/this.B),dx=(b%this.B)-x,dy=Math.floor(b/this.B)-y;
+    if(dx==0){if(Math.abs(dy)!=2)return 0;}
+    else if(dy==0){if(Math.abs(dx)!=2)return 0;}
+    else if(dx*dy!=4 || Math.abs(dx)!=2)return 0;
+    if(this.A[this.I(x+dx/2,y+dy/2)]==0)return 0;
+    this.A[b]=this.A[a];this.A[a]=0;this.A[this.I(x+dx/2,y+dy/2)]=0;
+    return 1;
+  }
+  chkDone(){
+    let j=0;for(let i=0;i<this.B*this.B;i++)if(this.A[i])j++;
+    if(j==1){this.draw();msg.textContent="You are a winner at triJump!";setTimeout(gameNext,1000);}
+  } 
+  nextLevel(){this.iTurns=this.iTurns+1;this.startGame();}
+  startGame(){
+    this.sel=-2;this.B=(4+this.iTurns)%10;
+    for(let i=0;i<this.B*this.B;i++)this.A[i]=((i%this.B)<=Math.floor(i/this.B))?1:0;
+    this.draw();
+  }
+};
+class coinJump{
+  animated=false;iTurns=0;A=0;sel=0;
+  constructor(){this.A=new Array(36);}
+  rules(){return "Stack the coins in 2 piles always jumping over 3 coins.";}
+  clickCallBack(){
+    let x=Math.floor(U.mX/R+.5)-1;
+    if(this.sel==-1){
+      if(x>=0 && x<6)this.sel=x;
+    }else{
+      if(this.jump(this.sel,x))this.chkDone();
+      this.sel=-1;
+    }
+    this.draw();
+  }
+  draw(){
+    let x,y;clear();
+    for(let i=0;i<36;i++)if(this.A[i]){
+      x=Math.floor(i/6)*R;
+      y=(6-(i%6))*R;
+      coin(x+R,y,1); 
+    }
+    if(this.sel>-1)G.fillRect(this.sel*R+R/2,R*7,R,R);
+  }
+  I(x, y){return x*6+y;}
+  top(a){let i=0;while(this.A[this.I(a,i)] && i<6)i++;return i;}
+  jump(a, b){//console.log(a,b);
+    if(a<0 || b<0 || a>5 || b>5 || a==b)return 0;
+    let ta=this.top(a),tb=this.top(b);
+    if(ta==6)return 0;
+    let dx=(a-b>0?-1:1),c=0;
+    for(let i=a+dx;i!=b;i+=dx)c+=this.top(i);
+    if(c!=3)return 0;
+    this.A[this.I(a,this.top(a)-1)]=0;
+    this.A[this.I(b,this.top(b))]=1;
+    return 1;
+  }
+  chkDone(){
+    let j=0;for(let i=0;i<6;i++)if(this.top(i)==3)j++;
+    if(j==2){this.draw();msg.textContent="You are a winner at Coin Jump!";}
+  } 
+  nextLevel(){this.iTurns=this.iTurns+1;this.startGame();}
+  startGame(){
+    this.sel=-1;
+    for(let i=0;i<36;i++)this.A[i]=0;
+    for(let i=0;i<6;i++)this.A[this.I(i,0)]=1;
+    this.draw();
+  }
+};
+class coinSlide{
+  animated=true;A=0;iTurns=0;sel=-1;stopped=true;
+  constructor(){this.A=new Array(16);}
+  rules(){return "Slide one coin between the other two. Never the same coin twice in a row.";}
+  nextLevel(){this.iTurns=this.iTurns+1;this.startGame();}
+  startGame(){let W=250,i=this.iTurns;this.stopped=true;this.sel=-1;
+    this.A[0]=W+200*Math.sin(i);this.A[1]=W+200*Math.sin(i*i+.7);
+    this.A[2]=W+200*Math.cos(i*.7);this.A[3]=W+200*Math.cos(i+.7);
+    this.A[4]=W+200*Math.sin(i*i*i+.4);this.A[5]=W+200*Math.cos(i+2.7);
+    for(let i=6;i<16;i++)this.A[i]=0; 
+  }
+  st(i){return this.A[i*2+10]*this.A[i*2+10]+this.A[i*2+11]*this.A[i*2+11]<0.0001;}
+  find(){let m=R,k=-1;
+    for(let i=0;i<3;i++){let d=length(this.A[i*2],this.A[i*2+1],this.A[6],this.A[7]);if(d<m){m=d;k=i;}}
+    return k;
+  }
+  loop(){
+    if(this.sel<0 && U.mP && this.stopped){//select
+      this.A[6]=this.A[8]=U.mX;this.A[7]=this.A[9]=U.mY;
+      this.sel=this.find();
+    }else if(this.sel>=0 && U.mP){//fling
+      this.A[6]=this.A[8];this.A[8]=U.mX;
+      this.A[7]=this.A[9];this.A[9]=U.mY;
+    }else if(this.sel>=0 && !U.mP){//release
+      this.A[this.sel*2+10]=this.A[8]-this.A[6];
+      this.A[this.sel*2+11]=this.A[9]-this.A[7];this.sel=-1;this.stopped=false;
+    }else if(!this.stopped){
+      for(let k=0;k<16;k++){
+        for(let i=0;i<3;i++){this.A[i*2]+=this.A[i*2+10]/16;this.A[i*2+1]+=this.A[i*2+11]/16;}
+        for(let i=1;i<3;i++)for(let j=0;j<i;j++){
+          if(length(this.A[i*2],this.A[i*2+1],this.A[j*2],this.A[j*2+1])<R){
+            this.A[i*2]-=this.A[i*2+10]/16;this.A[i*2+1]-=this.A[i*2+11]/16;
+            this.A[j*2]-=this.A[j*2+10]/16;this.A[j*2+1]-=this.A[j*2+11]/16;
+            let mx=this.A[i*2]-this.A[j*2],my=this.A[i*2+1]-this.A[j*2+1];
+            let rx=this.A[i*2+10]-this.A[j*2+10],ry=this.A[i*2+11]-this.A[j*2+11];
+            let imp=-.9*(rx*mx+ry*my)/(mx*mx+my*my);
+            this.A[i*2+10]+=mx*imp;this.A[i*2+11]+=my*imp;
+            this.A[j*2+10]-=mx*imp;this.A[j*2+11]-=my*imp;
+          }
+        }
+      }
+      let j=0;for(let i=0;i<3;i++){this.A[i*2+10]*=.95;this.A[i*2+11]*=.95;if(this.st(i))j++;}
+      if(j==3)this.stopped=true;      
+    }
+    clear();
+    for(let i=0;i<3;i++)coin(this.A[i*2],this.A[i*2+1],1);
+  }
+};
+class coinCorral{
+  animated=false;paused=true;A=0;iTurns=0;W=200;C=0;
+  constructor(){this.A=new Array(300);}
+  rules(){return "Fence the coins in private pens using the least amount of a single "+
+  "strand of barbed wire. Click the perimeter of the large circle to add points/lines. "+
+  "Click upper-left to remove points/lines. Coins can hang over the fence. "+
+  "Beat the computer and you win.";}
+  clickCallBack(){if(this.paused)return;
+    let i=this.LastPnt(),iOK=1;
+    if(U.mX+U.mY<25){this.A[Math.max(100,this.LastPnt()-2)]=0;this.draw();return;}
+    if(i>101){//check for double clicks
+      let x=U.mX-this.A[i-2],y=U.mY-this.A[i-1];
+      if(x*x+y*y<400)return;//not far enough away from last point
+    }
+    let W=250,x=U.mX-=W,y=U.mY-W,a=Math.atan2(y,x);
+    this.A[i++]=W+W*Math.cos(a)+1;this.A[i++]=W+W*Math.sin(a);
+    this.draw();
+    if(i<106)return;//not enough lines to check
+    if(this.chkDone(100)){
+      let n=0.0;
+      for(let k=104;k<=i;k+=2)n+=this.length(k);//length of wire
+      msg.textContent="Human: lines:"+(i-102)/2+" wire:"+n.toFixed(1);
+      this.computer(n);
+      this.draw();
+      if(!this.chkDone(200))msg.textContent+=" You are a Coin Corral Winner!";
+      this.paused=true;
+    }
+  }
+  length(i){//index past line to check
+    let x=this.A[i-4]-this.A[i-2],y=this.A[i-3]-this.A[i-1];return Math.sqrt(x*x+y*y);
+  }
+  drawLines(iLines){
+    let i=iLines,n=0.0,lon=0.0;
+    while(this.A[i]){//human chosen points/lines
+      circle(this.A[i],this.A[i+1],4,1);
+      if(i>iLines)line(this.A[i-2],this.A[i-1],this.A[i],this.A[i+1]);
+      i+=2;
+    }
+  }
+  draw(){
+    clear();G.strokeStyle='#FF0000';line(0,0,20,20);line(20,0,0,20);
+    G.strokeStyle='#4060C0';
+    circle(250,250,248,0);
+    G.strokeStyle='#208040';this.drawLines(100);//human
+    G.strokeStyle='#802040';this.drawLines(200);//computer
+    for(let i=0;i<this.C;i++)coin(this.A[i*2],this.A[i*2+1],1);
+  }
+  side(c, p){//returns side that coin c lies on line p
+    let ax=this.A[p],ay=this.A[p+1],bx=this.A[p+2],by=this.A[p+3],cx=this.A[c*2],cy=this.A[c*2+1];
+    cx-=ax;cy-=ay;bx-=ax;by-=ay;//C-A,B-A
+    let r=dot(cx,cy,-by,bx);//dot(C-A,cross(B-A))
+    return (r<0?0:1);
+  }
+  chkDone(o){//o:100=human 200=computer
+    let ID=new Array(50),p;
+    for(let i=0;i<50;i++)ID[i]=0;
+    for(let i=0;i<this.C;i++){//for each coin create a fence side id and check against prev
+      let d=1;p=0;
+      while(this.A[o+p+2]){
+        if(this.side(i,o+p))ID[i]=ID[i]+d;
+        d=d*2;
+        p=p+2;
+      }
+      for(let j=0;j<i;j++)if(ID[i]===ID[j])return 0;
+    }
+    return 1;
+  }
+  computer(n){//randomly lay length n of wire
+    let t=2000,W=250;for(let i=0;i<this.C;i++)t*=1.5;
+    for(let j=0;j<t;j++){
+      let w=0.0,la=-100.0,k=0;
+      while(w<n){
+        if(k>5){
+          if(this.chkDone(200)){
+            msg.textContent+=" Compu: lines:"+(k-2)/2+" wire:"+w.toFixed(1)+" wins.";
+            return;
+          }
+        }
+        let a=6.283*Math.random();
+        while((a-la)*(a-la)<0.01)a=6.283*Math.random();
+        la=a;
+        this.A[200+k++]=W+W*Math.cos(a)+1;
+        this.A[200+k++]=W+W*Math.sin(a);
+        this.A[200+k]=0;//mark it done
+        if(k>3)w+=this.length(200+k); 
+      }
+    }
+  }
+  LastPnt(){//find last point entered
+    let i=100;
+    while(this.A[i])i+=2;
+    return i;
+  }
+  nextLevel(){this.iTurns=this.iTurns+1;this.startGame();}
+  startGame(){
+    for(let i=0;i<300;i++)this.A[i]=0;
+    this.C=5+(this.iTurns%10);//# of coins
+    let i=0,W=250;
+    while(i<this.C){//place coins
+      let a=6.283*Math.random(),r=(W-R/2)*Math.random();
+      let iGood=1;
+      this.A[i*2]=W+Math.floor(r*Math.cos(a));this.A[i*2+1]=W+Math.floor(r*Math.sin(a));
+      for(let j=0;j<i;j++){
+        let x=this.A[i*2]-this.A[j*2],y=this.A[i*2+1]-this.A[j*2+1];
+        if((x*x+y*y)<R*R-10){iGood=0;break;}
+      }
+      if(iGood)i++;
+    }this.draw();
+    this.paused=false;
+  }
+};
+class coinDrop{
+  animated=true;A=0;iTurns=0;sel=0;stopped=true;
+  constructor(){this.A=new Array(25);}
+  rules(){return "Drop the coin right into the slot.";}
+  nextLevel(){this.iTurns=this.iTurns+1;this.startGame();}
+  startGame(){let W=250,i=this.iTurns;this.stopped=true;this.sel=0;
+    this.A[0]=W;this.A[1]=0;this.A[2]=0;this.A[3]=0;
+    for(let i=4;i<this.A.length;i++)this.A[i]=randi(490)+5;
+    this.A[24]=this.A[4]+(this.A[4]>250?-20:20);
+    for(let i=5;i<this.A.length;i+=2)if(this.A[i]>350 && Math.abs(this.A[i-1]-this.A[24])<R)this.A[i]-=100;
+    this.A[21]=this.A[23]=499;this.A[20]=this.A[24]-R*3/4;this.A[22]=this.A[24]+R*3/4;
+  }
+  loop(){
+    let R2=R/2,rad=R/4;
+    if(this.sel<2){this.A[0]=U.mX;if(U.mP && this.sel%2 || !U.mP && !this.sel%2)this.sel+=1;}
+    else{
+      this.A[3]+=0.1;
+      this.A[0]+=this.A[2];this.A[1]+=this.A[3];
+      for(let i=4;i<24;i+=2){
+        let d=length(this.A[0],this.A[1],this.A[i],this.A[i+1]);
+        if(d<R2+rad){let nx=(this.A[0]-this.A[i])/d;let ny=(this.A[1]-this.A[i+1])/d;
+          let h=-dot(nx,ny,this.A[2],this.A[3]);
+          if(h>0.0){
+            this.A[2]+=h*2.*nx;this.A[3]+=h*2.*ny;//I - 2 * dot(N, I) * N
+            this.A[2]*=.75;this.A[3]*=.75;
+            this.A[0]+=nx*(R2+rad-d);this.A[1]+=ny*(R2+rad-d);
+          }
+        }
+      }
+      if(this.A[0]<R2){this.A[0]=R2;if(this.A[2]<0)this.A[2]*=-.75;}
+      if(this.A[0]>500-R2){this.A[0]=500-R2;if(this.A[2]>0)this.A[2]*=-.75;}
+      if(this.A[1]>500-R2){
+        if(this.A[0]>this.A[24]-R/4 && this.A[0]<this.A[24]+R/4){
+          if(this.A[1]>500){msg.textContent="Coin Drop winner!";setTimeout(gameNext,1000);}
+        }else{this.A[1]=500-R2;if(this.A[3]>0)this.A[3]*=-.75;}
+      }
+    }
+    clear();
+    G.beginPath();G.moveTo(0,0);G.lineTo(0,499);G.lineTo(this.A[24]-R*3/4,499);G.stroke();
+    G.beginPath();G.moveTo(499,0);G.lineTo(499,499);G.lineTo(this.A[24]+R*3/4,499);G.stroke();
+    for(let i=4;i<24;i+=2)circle(this.A[i],this.A[i+1],rad,1);
+    coin(this.A[0],this.A[1],1);
+  }
+};
+class coinMatrix{
+  animated=false;iTurns=0;M=0;B=0;sel1=0;sel2=0;
+  constructor(){this.M=new Array(36);this.B=new Array(36);}
+  rules(){return "Unscramble the X by selecting 2 rows or columns to swap or selecting the same "+
+   "row or column twice to reverse its order.";}
+  clickCallBack(){
+    let x=U.mX,y=U.mY,sel=-1;
+    if(x<R&& y<R*7)sel=Math.floor(6+(y-R)/R);
+    else if(y<R&&x<R*7)sel=Math.floor((x-R)/R);
+    if(this.sel1<0){this.sel1=sel;this.sel2=-1;}
+    else{this.sel2=sel;
+      if(this.sel2>-1){
+        if(this.sel1==this.sel2){
+          if(this.sel1<6)this.colFlip(this.sel1);
+          else this.rowFlip(this.sel1-6);
+        }else{
+          if(this.sel1<6 && this.sel2<6)this.colSwap(this.sel1,this.sel2);
+          else if(this.sel1>5 && this.sel2 >5)this.rowSwap(this.sel1-6,this.sel2-6);
+        }
+      }this.sel1=-1;
+    }
+    this.chkDone();
+    this.draw();
+  }
+  cnsl(s){msg.textContent=s==0?"":s==1?"You are a winner!":
+                         this.iTurns>1?"You solved puzzle "+(this.iTurns-1)+"!":
+                                       "Click to begin.";}
+  draw(){
+    const R=50,Rm=46;
+    clear();
+    if(this.sel1>-1){
+      G.fillStyle='#00FFFF';
+      if(this.sel1<6){G.fillRect(R+this.sel1*R,0,Rm,Rm);}
+      else{G.fillRect(0,R+(this.sel1-6)*R,Rm,Rm);}
+    }
+    var x,y;
+    for(let i=0;i<36;i++){
+      x=(i%6)*R;
+      y=Math.floor(i/6)*R;
+      coin(x+R*1.5,y+R*1.5,this.M[i]);
+    }
+    this.cnsl(2);
+  }
+  chkDone(){
+    let j=0;for(let i=0;i<36;i++)if(this.M[i] && this.B[i])j++;
+    if(j>11){this.draw();this.cnsl(1);setTimeout(gameNext,1000);}
+  }
+  swap(a, b){let t=this.M[a];this.M[a]=this.M[b];this.M[b]=t;}
+  rowFlip(r1){for(let i=0;i<3;i++)this.swap(r1*6+i,r1*6+5-i);}
+  colFlip(r1){for(let i=0;i<3;i++)this.swap(r1+6*i,r1+6*(5-i));}
+  rowSwap(r1, r2){for(let i=0;i<6;i++)this.swap(r1*6+i,r2*6+i);}
+  colSwap(r1, r2){for(let i=0;i<6;i++)this.swap(r1+6*i,r2+6*i);}
+  startGame(){
+    this.sel1=-1;
+    for(let i=0;i<36;i++)this.M[i]=0;
+    let a=[0,5,30,35,7,10,25,28,14,15,20,21];
+    for(let i=0;i<a.length;i++)this.M[a[i]]=1;
+    for(let i=0;i<36;i++)this.B[i]=this.M[i];
+    for(let i=0;i<3+this.iTurns;i++){
+      let r=randi(4),r1=randi(6),r2=randi(6);
+      if(r1==r2)r=randi(2);
+      if(r==0)this.rowFlip(r1);
+      else if(r==1)this.colFlip(r1);
+      else if(r==2)this.rowSwap(r1,r2);
+      else this.colSwap(r1,r2);
+    }this.draw();
+  }
+  nextLevel(){this.iTurns=this.iTurns+1;this.startGame();}
+};
+function looper(){if(game.animated){game.loop();setTimeout(looper,20);}}
+function newGame(name){
+  var alreadyAnimated=false;if(game)alreadyAnimated=game.animated;
+  try{eval("game=new "+name+"();");}catch(e){console.log(name+" has not been implemented yet");}
+  G.strokeStyle='#808080';G.fillStyle='#808080';
+  G.shadowOffsetX=1;G.shadowOffsetY=2;G.shadowColor='#404040';
+  msg.style.color='purple';
+  game.startGame();
+  rules.innerText=game.rules();
+  if(game.animated && !alreadyAnimated){addAnimEvents();looper();}
+  else if(alreadyAnimated && !game.animated)removeAnimEvents();
+}
+function setup(){
+  G=c.getContext('2d');
+  removeAnimEvents();
+  document.addEventListener('keydown',keyDown,false);
+  document.addEventListener('keyup',keyUp,false);
+  newGame("menu");
+}
+</script></head>
+<body onload="setup();" style='font-family:sans-serif;background-color:#000000;color:#808080;'>
+<canvas id="c" width="500" height="500"></canvas><br>
+<button onclick="newGame('menu');">Main Menu</button>
+<button onclick="game.nextLevel();">Next</button>
+<button onclick="game.startGame();">Retry</button> <span id="msg"></span>
+<div id="rules"></div>
+</body></html>

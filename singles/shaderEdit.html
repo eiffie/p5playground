@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en"><head><title>Shader Edit</title>
+<meta charset="UTF-8">
+<meta name="description" content="online/offline shader editor.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="webgl,shader,HTML,javascript,glsl">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+*{font-family:monospace;color:#80D0FF;background-color:#202020;}
+</style>
+<script id="newton2d" type="x-shader/x-fragment">precision mediump float;
+uniform vec2 res;
+uniform float time;
+const int AA=2,ITERS=16;
+vec2 CosSin(float a){return vec2(cos(a),sin(a));}
+vec2 cpwr(vec2 v, float p){return pow(length(v),p)*CosSin(atan(v.y,v.x)*p);}
+vec2 cmul(vec2 a,vec2 b){return vec2(a.x*b.x-a.y*b.y,a.x*b.y+a.y*b.x);}
+vec2 cdiv(vec2 a,vec2 b){return (a*b.x+vec2(a.y,-a.x)*b.y)/dot(b,b);}
+vec2 f(vec2 p){return cmul(p,p)+vec2(cos(time*.3));}
+vec2 df(vec2 p){return .5*p+1.;}
+float DE(vec2 p){
+  p+=vec2(cos(time*0.05),cos(time*0.06))*20.0;
+  p=abs(mod(p,20.)-10.)-5.;
+  float r=length(p);
+  for(int i=0;i<ITERS;i++){
+    vec2 p2=p-cdiv(f(p),df(p));
+    r=length(p2-p);
+    if(r<0.0001)break;
+    p=p2;
+  }
+  return min(r,16.);
+}
+vec3 pal(float a){vec3 v=vec3(sin(a*1.3),sin(a),sin(a*1.5));return v*v;}
+void mainImage(out vec4 O, in vec2 U){
+  vec3 col=vec3(0);
+  for(int y=0;y<AA;y++)for(int x=0;x<AA;x++){
+    vec2 uv=(2.0*(U+vec2(x,y)/float(AA))-res)/res.x;
+    float d=DE(uv*exp(2.5+sin(time*0.1)));
+    col+=pal(d);
+  }
+  O=vec4(col/float(AA*AA),1.);
+}
+void main(){mainImage(gl_FragColor,gl_FragCoord.xy);}
+</script>
+<script id="rayMarch" type="x-shader/x-fragment">precision mediump float;
+uniform vec2 res;
+uniform float time;
+
+#define maxDepth 20.
+#define marchSteps 64
+#define lightPos vec3(20,20,-5)
+#define lightColor vec3(1.,.9,.5)
+vec2 rnd;
+vec3 mcol=vec3(0);
+float DE(vec3 p){
+ vec4 z = vec4(p,1.0),z0=z; //mandlebox from tglad
+ for(int i=0;i<5;i++){
+  z.xyz=clamp(z.xyz, -1.0, 1.0) *2.0-z.xyz;
+  z*=2.5/clamp(dot(z.xyz,z.xyz),.0,1.);z+=z0;
+  if(i==2 && mcol.x>0.)mcol+=abs(sin(z.rgb));
+ }
+ return (length(max(abs(z.xyz)-vec3(3.5,1.3,3.5),0.0))-0.)/z.w;
+}
+mat3 lookat(vec3 fw){
+ fw=normalize(fw);vec3 rt=normalize(cross(fw,vec3(0.0,-1.0,0.0)));
+ return mat3(rt,cross(rt,fw),fw);
+}
+vec3 bg(vec3 ro, vec3 rd){
+ return vec3(rd*.1+.6+.4*dot(normalize(lightPos-ro),rd));
+}
+float ShadAO(in vec3 ro, in vec3 rd, in float dL){
+ float mn=0.05,t=mn+mn*rnd.y,s=1.0,d;
+ for(int i=0;i<6;i++){
+  d=DE(ro+rd*t)+mn;
+  s=min(s,d/t+t);
+  t+=d;
+  if(d>dL)break;
+ }
+ return s;
+}
+void mainImage(out vec4 O, in vec2 U) {
+ O=vec4(0);
+ rnd=fract(sin(U*U.yx+vec2(time))*4231.8413);
+ vec2 uv=(2.*U-res)/res.y;
+ vec3 ro=vec3(sin(time),0,cos(time))*10.,tgt=vec3(0);
+ vec3 rd=lookat(tgt-ro)*normalize(vec3(uv, 1.));
+ vec3 rt=normalize(cross(rd,vec3(0,1,0))),up=cross(rt,rd);
+ float d=DE(ro),od=d,t=rnd.x*d,hit=0.;
+ for(int i=0;i<marchSteps;i++){
+  od=d;//save the old distance for a funky normal calculation
+  t+=d=DE(ro+t*rd);
+  if(d<t/res.y)hit=1.;
+  if(t>maxDepth || hit>0.)break;
+ }
+ if(hit>0. || t<maxDepth){
+  if(od/d>10.){vec3 ro2=ro+rd*(t-d);t-=d;od=DE(ro2);d=DE(ro2+rd*od);t+=od+d;}
+  ro+=rd*(t-d-od);// advance ray position near hit point
+  mcol.x=.01;//trigger color accumulation
+  vec3 N=normalize(rd*(d-od)+rt*(DE(ro+rt*od)-od)
+   +up*(DE(ro+up*od)-od));
+  vec3 scol=mcol*.5;mcol.x=0.;//grab average closest colors, stop
+  ro+=rd*(d+od);//nudge forward nearer intersection
+  if(N!=N)N=-rd;//this is !isNum(N)
+  vec3 L=normalize(lightPos-ro);
+  vec3 refl=reflect(rd,N);
+  float dif=0.5+0.5*dot(N,L),fr=pow(1.-max(0.,dot(N,-rd)),5.);
+  O.rgb=(scol*dif+lightColor*fr*pow(max(0.,dot(refl,L)),8.))
+   *ShadAO(ro,L,length(lightPos-ro)-.05);
+ }else O.rgb=bg(ro,rd);
+}
+void main(){mainImage(gl_FragColor,gl_FragCoord.xy);}
+</script>
+<script id="SoC" type="x-shader/x-fragment">
+float pixelSize,aperture,focalDistance;
+float CircleOfConfusion(float t){//calculates the radius of the circle of confusion at length t
+ return max(abs(focalDistance-t)*aperture,pixelSize*(1.0+t));
+}
+float linstep(float a, float b, float t){return clamp((t-a)/(b-a),0.,1.);}
+float rand(){rnd.x+=1.;rnd.y=abs(sin(rnd.y*6.283+rnd.x));return fract(rnd.y+rnd.x);}
+void mainImage(out vec4 O,in vec2 U){
+ pixelSize=1.0/res.y;
+ float fudgeFactor=1.;
+ rnd=fract(sin(U*U.yx+vec2(time))*4231.8413);
+ vec3 ro=vec3(cos(time),0.,sin(time))*10.0; 
+ vec3 rd=lookat(-ro)*normalize(vec3((2.*U-res)*pixelSize,1.0)); 
+ vec3 rt=normalize(cross(vec3(0,1,0),rd)),up=cross(rd,rt);//just need to be perpendicular
+ focalDistance=DE(ro);
+ aperture=0.005*focalDistance;
+ vec4 col=vec4(0.0);//color accumulator, .w=alpha
+ float t=0.0,od,de=1.,d,dt=0.,ot;//distance traveled, minimum light distance
+ for(int i=1;i<marchSteps;i++){//march loop
+  if(col.w>0.9 || t>maxDepth)break;//bail if we hit a surface or go out of bounds
+  float rCoC=CircleOfConfusion(t);//calc the radius of CoC
+  od=de;dt=t-ot;ot=t;//save old distances for normal, light direction calc
+  de=DE(ro+rd*t);
+  d=de+0.33*rCoC;
+  if(d<rCoC){//if we are inside the sphere of confusion add its contribution
+   vec3 p=ro+rd*(t-dt);//back up to previos checkpoint
+   mcol=vec3(0.01);//collect color samples with normal deltas
+   float Drt=DE(p+rt*dt),Dup=DE(p+up*dt);
+   vec3 N=normalize(rd*(de-od)+rt*(Drt-od)+up*(Dup-od));
+   if(N!=N)N=-rd;//if no gradient assume facing us
+   float ld=length(lightPos-p);
+   vec3 L=(lightPos-p)/ld;
+   float lightStrength=1.0/(1.0+ld*ld*20.0);
+   vec3 scol=mcol*(0.4*(1.0+dot(N,L)+.2))*lightStrength;//average material color * diffuse lighting * attenuation
+   scol+=pow(max(0.0,dot(reflect(rd,N),L)),8.0)*lightColor;//specular lighting
+   mcol=vec3(0);//clear the color accumulator before shadows
+   scol*=ShadAO(p,L,ld);//now stop the shadow march at light distance
+   float alpha=fudgeFactor*(1.0-col.w)*linstep(-rCoC,rCoC,-d);//calculate the mix like cloud density
+   col=vec4(col.rgb+scol*alpha,clamp(col.w+alpha,0.0,1.0));//blend in the new color 
+  }
+  d=abs(fudgeFactor*d)*(0.8+0.2*rand());//add in noise to reduce banding and create fuzz
+  t+=d;
+ }//mix in background color
+ t=min(maxDepth,t);
+ col.rgb+=bg(ro,rd)*(1.-col.w);
+ col.rgb+=mix(col.rgb,bg(ro,rd),t/maxDepth);
+ O = vec4(clamp(col.rgb,0.0,1.0),1.0);
+}
+void main(){mainImage(gl_FragColor,gl_FragCoord.xy);}
+</script>
+<script>
+const lineHeight=15;
+var ST,gl,P=0,VP,VS,FS=0,now,stop=1;
+function _animate(){if(stop)return;//animation loop
+  _draw();requestAnimationFrame(_animate);
+}
+function _draw(){//spit shader to screen
+  gl.uniform2f(gl.getUniformLocation(P,"res"),c.width,c.height);
+  gl.uniform1f(gl.getUniformLocation(P,"time"),(now()-ST)/1000.0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,VP.numItems);
+}
+function fullScreen(el){//browser handles reverse on Esc
+ if( el.requestFullscreen ) el.requestFullscreen();
+ else if( el.msRequestFullscreen ) el.msRequestFullscreen();
+ else if( el.mozRequestFullScreen ) el.mozRequestFullScreen();
+ else if( el.webkitRequestFullscreen ) el.webkitRequestFullscreen( Element.ALLOW_KEYBOARD_INPUT );
+}
+function getShader(src, typ){//utility functions for compiling a shader program
+  var shader=gl.createShader(typ);
+  gl.shaderSource(shader,src);
+  gl.compileShader(shader);
+  if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){
+    var et=gl.getShaderInfoLog(shader);
+    gl.deleteShader(shader);
+    alert(et);console.log(et);
+    et=et.slice(et.indexOf("0:")+2);//goto first error
+    et=et.slice(0,et.indexOf(":"));
+    ta.scrollIntoView();goto(Number(et)-1);return 0;
+  }return shader;
+}
+function script2Prog(txt){//compile, link and set attributes on a shader program
+  if(P){//remove old
+    if(FS){gl.detachShader(P,FS);gl.deleteShader(FS);FS=0;}
+    gl.detachShader(P,VS);
+    gl.deleteProgram(P);P=0;
+  }
+  FS=getShader(txt,gl.FRAGMENT_SHADER);
+  if(!FS){console.log("no FS");return 0;}
+  P=gl.createProgram();
+  gl.attachShader(P,VS);
+  gl.attachShader(P,FS);
+  gl.linkProgram(P);
+  if(!gl.getProgramParameter(P,gl.LINK_STATUS)){
+    alert("Could not link shaders to program.");
+    gl.detachShader(P,FS);gl.detachShader(P,VS);
+    gl.deleteProgram(P);P=0;return 0;//when varyings don't match?
+  } 
+  gl.useProgram(P);
+  P.vertexPositionAttribute=gl.getAttribLocation(P,"position");
+  gl.enableVertexAttribArray(P.vertexPositionAttribute);
+  gl.vertexAttribPointer(P.vertexPositionAttribute, VP.itemSize, gl.FLOAT, false, 0, 0);
+  return 1;
+}
+function keyDown(e){//console.log(e.keyCode);
+  if(e.keyCode==9){
+    if(ta.selectionStart==ta.selectionEnd){
+      ta.selectionStart--;
+      ta.setRangeText(ta.value.charAt(ta.selectionStart)+"  ");
+      ta.selectionStart=ta.selectionEnd=ta.selectionStart+3;
+    }else ta.setRangeText("  ");
+    e.preventDefault();
+  }else if(e.keyCode==13 && (ta.selectionStart==ta.selectionEnd)){
+    ta.selectionStart--;
+    let i=ta.selectionStart;
+    let ind=ta.value.charAt(ta.selectionStart)+(ta.value.charAt(i)=="{"?"\n  ":"\n");
+    while(i>0 && ta.value.charCodeAt(i)!=10){i--};i++;
+    while(ta.value.charCodeAt(i)==32){i++;ind+=" ";}
+    ta.setRangeText(ind);
+    ta.selectionStart=ta.selectionEnd=ta.selectionStart+ind.length;
+    e.preventDefault();
+  }
+}
+function setup(){//called once to set up webgl
+  ta.addEventListener('keydown',keyDown,false);
+  if(screen.width>=512){c.width=512;ta.cols=68;}
+  const vs="attribute vec3 position;void main(void){gl_Position=vec4(position,1.0);}";
+  now=window.performance.now?function(){return window.performance.now();}:function(){return Date.now;};
+  if(!window.requestAnimationFrame){window.requestAnimationFrame=(function(){
+    return function(callback,element){window.setTimeout(callback,20);};})();}
+  gl=c.getContext('webgl', { antialias: false, depth: false, alpha: false } );
+  gl.viewportWidth=c.width;
+  gl.viewportHeight=c.height;
+  VP=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, VP);
+  var vertices = [1.0,  1.0,  0.0, -1.0,  1.0,  0.0, 1.0, -1.0,  0.0, -1.0, -1.0,  0.0];
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices),gl.STATIC_DRAW);
+  VP.itemSize = 3;
+  VP.numItems = 4;
+  VS=getShader(vs,gl.VERTEX_SHADER);
+  run();
+}
+function run(){stop=1;
+  if(script2Prog(ta.value)){
+    gl.clearColor(0.,0.,0.,1.);
+    ST=now();stop=0;_animate();
+  }
+}
+function openf(file){
+  var fr=new FileReader();
+  fr.onload=function(){ta.value=fr.result;}; 
+  fr.readAsText(file);
+}
+function save(){
+  var blb=new Blob([ta.value], {type: 'text/plain'});
+  var a=document.createElement("a"),url=URL.createObjectURL(blb);
+  a.href=url;//create a link, click it and remove link and url
+  a.download=fname.value;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },0);
+}
+function goto(line){ta.scrollTop=(line-1)*lineHeight;}
+</script></head>
+<body onload="setup();">
+<canvas id="c" width="320" height="320"></canvas>
+<div>
+<button onclick="openfile.click();">o</button>
+<input id="openfile" name="openfile" type="file" style="display:none;"
+ onchange="fname.value=this.files[0].name;openf(this.files[0]);">
+<input type="text" id="fname" name="fname">
+<button onclick="save();">s</button>
+<button onclick="c.scrollIntoView();run();">&gt</button>
+<button onclick="stop=1;ta.scrollIntoView();">|</button>
+<button onclick="fullScreen(c);">FS</button><br>
+<textarea id="ta" name="ta" rows="25" cols="40" autocorrect="off" spellcheck="false"
+ autocapitalize="none" wrap="off" textprediction="false" style="line-height:15px">
+precision mediump float;
+uniform vec2 res;
+uniform float time;
+
+void main(){
+  vec2 U=gl_FragCoord.xy;
+  gl_FragColor=vec4(U/res,abs(sin(time)),1.);
+}
+</textarea><br>
+<input type="text" id="ft" name="ft">
+<button onclick="ta.focus();find(ft.value);">find</button>
+<button onclick="goto(Number(ft.value));">goto</button>
+</div>
+<div>
+<b>Templates</b><br>
+<button onclick="if(confirm('Replace all text?'))ta.value=newton2d.textContent;">2d newton with anti-aliasing</button><br>
+<button onclick="if(confirm('Replace all text?'))ta.value=rayMarch.textContent;">3d ray march with soft shadows</button><br>
+<button onclick="if(confirm('Replace all text?')){ta.value=rayMarch.textContent.slice(0,rayMarch.textContent.indexOf('void'));
+ ta.value=ta.value.concat(SoC.textContent);}">3d Sphere of Confusion sampling</button><br>
+</body></html>

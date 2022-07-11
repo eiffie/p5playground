@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="en"><head><title>Music Generator</title>
+<meta charset="UTF-8">
+<meta name="description" content="Generates a random musical score.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="WebAudio,unicode,sloth,canon,music,algorithmic,HTML,javascript,canvas">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script>
+function randi(n){return Math.floor(Math.random()*n);}
+let N=new Array(8),G,A,buf,pTimer,time,startTime,frameMs=8000;//hardcode unicode chars
+let p=new Array(128);
+let tclef="\ud834\udd1e",aclef="\ud834\udd21",bclef="\ud834\udd22";
+let whole="\ud834\udd5d",half="\ud834\udd5e";
+let quarter="\ud834\udd5f",eighth="\ud834\udd60",sixteenth="\ud834\udd61";
+let wRest="\ud834\udd3b",qRest="\ud834\udd3d",eRest="\ud834\udd3e";
+function scale(n){n=n%12;return !(n==1||n==3||n==6||n==8||n==10);}//white keys
+function doScore(){//draw and play a random musical score
+  function line(x1,y1,x2,y2){G.beginPath();G.moveTo(x1,y1);G.lineTo(x2,y2);G.stroke();}
+  function ntor(n){return Math.pow(2.,(n-67.)/12.);}//note to rate 1=440Hz
+  function draw(t,n,i,r){n=p[n];G.fillText(t,55+21.25*i,326-5*n);//321-5*n);
+    if(!r){n+=(n-(n>16 && n<32?0:1))%2;
+     line(55+21.25*i,325-5*n,75+21.25*i,325-5*n);}}//320-5*n
+  function play(n,i){//play the buffer pitched to a note at specified time offset
+    var src=A.createBufferSource();
+    src.buffer=buf;
+    var gn=A.createGain();
+    gn.connect(A.destination);//last node first
+    gn.gain.value=1.-n/128.; //dampen high tones
+    var pn=A.createStereoPanner();
+    pn.connect(gn); //string the nodes together
+    pn.pan.value=Math.min(1.,n/24.-1.);//piano pan
+    src.playbackRate.setValueAtTime(ntor(n),0);
+    src.connect(pn);
+    src.start(time+i*.25);
+  }
+  pTimer=window.setTimeout(doScore,frameMs);//run until closed
+  time=A.currentTime;
+  let eighthNotesPlayed=Math.floor((time-startTime)/8.+.5)*32;
+  time+=.125;
+  G.clearRect(0,0,c.width,c.height);//draw staff
+  line(10,90,10,300);
+  for(let y=0;y<3;y++){
+    for(let i=0;i<5;i++)line(10,90+y*85+i*10,730,90+y*85+i*10);
+    for(let x=0;x<4;x++)line(220+x*170,130+y*85,220+x*170,90+y*85);
+  }
+  G.fillText(tclef,10,131);G.fillText(aclef,5,216);G.fillText(bclef,10,301);
+  for(let i=0;i<32;i++){//8 notes per measure, 4 measures
+    j=i+eighthNotesPlayed;
+    n0=N[Math.floor(j/64)%8];//subliminal note
+    n1=n0+N[Math.floor(j/8)%8];//whole note
+    n2=n1+N[Math.floor(j/4)%8];//half
+    n4=n2+12+N[Math.floor(j/2)%8];//quarter
+    n8=n4+12+N[j%8];//eighth, if the note is within scale draw and play else draw rest
+    if(scale(n8))draw(eighth,n8+24,i);else draw(eRest,62,i,1); if(scale(n8))play(n8,i);
+    if(i%2==0){if(scale(n4))draw(quarter,n4+12,i);else draw(qRest,38,i,1); if(scale(n4))play(n4,i);}
+    if(i%4==0 && scale(n2)){draw(half,n2,i); play(n2,i);}
+    if(i%8==0){if(scale(n1)){draw(whole,n1,i); play(n1,i);}else if(!scale(n2))draw(wRest,2,i,1);}
+  }
+}
+function setup(){
+  G=c.getContext("2d");
+  G.fillStyle="#000000";G.strokeStyle="#000000";
+  G.font="53px sans-serif"; //big for musical notation
+  G.fillText("Press Play to Begin "+tclef,50,150);
+  A=new (window.AudioContext || window.webkitAudioContext)();
+  buf=A.createBuffer(1,12000,48000);//create a sinple decaying sine oscillator
+  var cd=buf.getChannelData(0);
+  for(let k=0;k<12000;k++)cd[k]=Math.sin(k)*(1.-k/12000)*.1;
+  for(let i=0;i<8;i++)N[i]=0;//clear random ring incase user inputs fewer
+  for(let i=0,j=0;i<128;i++){if(scale(i))j++;p[i]=j;}
+}
+function playRandomSong(){//create a random ring of note MIDI values
+  txtCanon.value=randi(8);
+  for(let i=1;i<8;i++)txtCanon.value+=","+randi(8);
+  playThisSong();
+}
+function playThisSong(){//play the user's input values
+  if(pTimer){window.clearTimeout(pTimer);A.suspend();}//stop all sounds
+  var s=txtCanon.value.split(",");
+  for(let i=0;i<Math.min(s.length,8.);i++)N[i]=Number(s[i]);
+  canon.textContent=N[0]+","+N[1]+","+N[2]+","+N[3]+","+N[4]+","+N[5]+","+N[6]+","+N[7];
+  A.resume();startTime=A.currentTime;doScore();
+}
+</script></head>
+<body onload="setup();" style="font-family:sans-serif">
+<b>Algorithmic Music</b> <span id="canon"></span><br>
+<canvas id="c" width="750" height="320"></canvas><br>
+<button onclick="playRandomSong();">Play Random Song</button>
+<button onclick="playThisSong();">Play This Canon</button>
+<input type="text" id="txtCanon" name="txtCanon" value="5,7,2,7,0,7,2,2"/>
+<br>
+A simple way to create music in code is the Sloth Canon. A series of notes played
+in a ring have the same notes played faster pitched "on top" of them. For example
+the triad C=0 E=5 G=7 could become C=0 E=4 G=7, E=4 G#=8 B=11, G=7 B=11 D=14.
+<br><br>
+This example makes use of unicode characters outside to base plane 0-0xFFFF.
+This requires 2 codes called the high and low surrogate calculated as:<br>
+highSurrogate=(unicode-0x100000)/0x400+0xD800;<br>
+lowSurrogate=(unicode-0x100000)%0x400+0xDC00;<br>
+Javascript wants to translate the control characters ASAP which makes it
+difficult to create unicode characters on the fly as "/ud800/u"+code.toString(16)
+will be a "bad character encoding" error.
+<br><br>
+The WebAudioAPI provides oscillators but its often easier to work with buffers
+instead and build your own.
+</body></html>

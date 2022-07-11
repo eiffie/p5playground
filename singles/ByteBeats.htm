@@ -1,0 +1,28 @@
+<!DOCTYPE html><html><head><title></title>
+<meta charset="UTF-8">
+<script>
+var A,sndbuf,cd,src=0;
+function setup(){
+  try{A=new AudioContext();
+  sndbuf=A.createBuffer(1,800000,8000);//channels,samples,sampsPerSec
+  cd=sndbuf.getChannelData(0);}catch(e){log(e);}
+}
+function fill(t){
+  eval(ta.value);
+  return (t%256)/256-.5;
+}
+function plAy(){
+  try{if(src)src.stop(0);
+  for(let k=0;k<800000;k++)cd[k]=fill(k);
+  src=A.createBufferSource();
+  src.buffer=sndbuf;
+  src.connect(A.destination);src.start(0);}catch(e){log(e);}
+}
+function log(e){msg.textContent+="\n"+e.toString();}
+</script></head>
+<body onload="setup();">enter bytebeat formula<br>
+<textarea id="ta" rows="5" cols="40" spellcheck="false" autocorrect="off" autocapitalize="none">
+t=
+</textarea>
+<button onclick="plAy();">play</button><div id="msg"></div>
+</body></html>

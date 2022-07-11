@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en"><head><title>Bouncy</title>
+<meta charset="UTF-8">
+<meta name="description" content="A playable demo game in a single file.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="HTML,javascript,webgl,webaudio,game">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script id="fragShader" type="x-shader/x-fragment">
+precision mediump float;
+uniform vec2 res,v0,v1,v2,v3;
+uniform float time;
+#define mixr(d,c,r) O.xyz=mix(c*max(0.,(1.-sqrt(d/r))),O.xyz,smoothstep(r,r+.01,d))
+#define addr(d,c,r) O.xyz+=c*max(0.,(1.-sqrt(d/r)))
+#define blst(v,k) if(k!=0.){d=length(p-v);addr(d,vec3(1.3,.4,0.),.3);}
+#define tube(a,b,c) {vec2 pa=p-a,ba=b-a;d=length(pa-ba*clamp(dot(pa,ba)/dot(ba,ba),0.,1.));mixr(d,c,.05);}
+float xpath(vec2 p){return sin(p.y+sin(.5*p.x*p.x*p.x+p.y*1.3));}
+float tex(vec2 p){p=sin(p.xy+2.4*sin(p.yx));return p.x+p.y;}
+float DE(vec2 p){
+ float d=1.,i=floor(p.y+time)+.5;
+ if(sin(i+13.*sin(i))>.5){
+  float y=floor(p.y+fract(time))+.5-fract(time);
+  d=length(p-vec2(xpath(vec2(p.x,y))*.25,y));
+ }
+ return min(min(1.+p.y,1.-abs(p.x-xpath(p))),pow(d,.3)-.6);
+}
+void main(){
+ vec4 O=vec4(0,0,0,1);
+ vec2 uv=(2.*gl_FragCoord.xy-res)/res.y;
+ vec2 p=2.*uv;p.y+=v2.y;
+ float d=-DE(p),d2=abs(sin(10.*(p.x+d)));
+ O.z=smoothstep(0.,-.05,d)*(.4+.1*tex(p*2.3));
+ d2=max(d2,smoothstep(.8,1.,d));d=clamp(d,0.,1.);
+ O.x=1.3*d*d2;O.y=.8*d*d*d2;
+ O.xy-=vec2(.1)*tex(p*4.)*d;
+ tube(v0,v2,vec3(.4,1.,.6));
+ tube(v1,v2,vec3(.4,.6,1.));
+ d=length(p-v2);
+ mixr(d,vec3(2.-1.*abs(sin(time*10.)),.9,.8),.1);
+ blst(v0,v3.x);
+ blst(v1,v3.y);
+ gl_FragColor=O;
+}
+</script>
+<script>
+const LEFT_ARROW=37,RIGHT_ARROW=39,UP_ARROW=38,DOWN_ARROW=40;
+ 
+class V{//vec2+missing glsl functions
+ x=0.;y=0.;
+ constructor(a,b){this.x=a;this.y=b;}
+ static fract(a){return a<0.?1.-(a%1.):(a%1.);}
+ static mod(a,b){return a<0.?b-(a%b):(a%b);}
+ static clamp(a,b,c){return Math.min(c,Math.max(b,a));}
+ static saturate(a){return V.clamp(a,0.,1.);}
+ static mix(a,b,c){return a*(1.-c)+b*c;}
+ static smoothstep(a,b,c){let t=V.saturate((c-a)/(b-a));return t*t*(3.-2.*t);}
+ static step(a,b){return a>b?0.:1.;}
+ static rndi(a){return Math.floor(a*Math.random() );}
+ static c2(a){return new V(a,a);}
+ static add(a,b){return new V(a.x+b.x,a.y+b.y);}
+ static sub(a,b){return new V(a.x-b.x,a.y-b.y);}
+ static mul(a,b){return new V(a.x*b.x,a.y*b.y);}
+ static mlc(a,b){return new V(a.x*b,a.y*b);}
+ static div(a,b){return new V(a.x/b.x,a.y/b.y);}
+ static nrm(a){let m=a.mag();if(m==0.)a.x=m=1.;return V.mlc(a,1./m);}
+ static rot(b,a){let ca=Math.cos(a),sa=Math.sin(a);return new V(ca*b.x+sa*b.y,ca*b.y-sa*b.x);}
+ static fnc(a,f){return new V(f(a.x),f(a.y));}
+ static cpy(a,b){a.x=b.x;a.y=b.y;}
+ static dot(a,b){return b.x*a.x+b.y*a.y;}
+ add(a){this.x+=a.x;this.y+=a.y;}
+ sub(a){this.x-=a.x;this.y-=a.y;}
+ mul(a){this.x*=a.x;this.y*=a.y;}
+ mlc(a){this.x*=a;this.y*=a;}
+ div(a){this.x/=a.x;this.y/=a.y;}
+ fnc(f){this.x=f(this.x);this.y=f(this.y);;}
+ mag(){return Math.sqrt(this.x*this.x+this.y*this.y);}
+ nrm(){let m=this.mag();if(m==0.)this.x=m=1.;this.mlc(1./m);}
+ rfl(N){let h=2.*V.dot(this,N);this.add(V.mlc(N,-h));}
+}
+var fpsMs,now,clock,st,gl,P,VP;
+let iLeft=0.,iRight=0.,src,time=0.,key=0.,res=V.c2(0.),mouse=V.c2(0.),mouseZ=0.;
+let fRadius=0.02,fDrag=0.99,fBlast=0.05,fGravity=0.0002;
+let v=new Array(4),vp=new Array(3);
+function NewGame(){
+  for(let i=0;i<3;i++){v[i]=V.c2(0.);vp[i]=V.c2(0.);}v[3]=V.c2(0.);
+  let f=.2;iLeft=iRight=0.;
+  v[0].x=vp[0].x=v[0].y=vp[0].y=v[1].y=vp[1].y=-f;
+  v[1].x=vp[1].x=f;v[2].x=vp[2].x=0.;v[2].y=vp[2].y=.14646;
+}
+function xpath(p){return Math.sin(p.y+Math.sin(.5*p.x*p.x*p.x+p.y*1.3));}
+function DE(p){with(Math){
+  let d=1.,i=floor(p.y+time)+.5;
+  if(sin(i+13.*sin(i))>.5){
+    let t=time % 1.,y=floor(p.y+t)+.5-t;
+    let tmp=V.sub(p,new V(xpath(new V(p.x,y))*0.25,y));
+    d=tmp.mag();
+  }
+  return min(min(1.0+p.y,1.0-abs(p.x-xpath(p))),pow(d,0.3)-0.6);}
+}
+function Verlet(){
+  for(let i=0;i<3;i++){//stick constraints
+    let dlt=V.sub(v[i],v[(i+1)%3]);
+    dlt.mlc(0.45*(dlt.mag()-0.4));
+    v[i].sub(dlt);v[(i+1)%3].add(dlt);
+  }
+  for(let i=0;i<3;i++){//verlet integration
+    let tmp=V.sub(v[i],vp[i]);
+    tmp.mlc(fDrag);
+    V.cpy(vp[i],v[i]);
+    v[i].add(tmp);
+  }
+  for(let i=0;i<3;i++){//collisions
+    let d=DE(v[i])+0.1;
+    if(d<fRadius){
+      let tmp=V.add(v[i],new V(fRadius,0.));
+      let nx=DE(tmp)+0.1-d;
+      tmp=V.add(v[i],new V(0.,fRadius));
+      let ny=DE(tmp)+0.1-d;
+      let N=new V(nx,ny);
+      N.nrm();
+      let vel=V.sub(v[i],vp[i]); 
+      if(V.dot(N,vel) < 0.0){vel.rfl(N);vel.mlc(fDrag);}//if moving toward surface bounce
+      N.mlc(fRadius-d);
+      v[i].add(N);
+      vel.mlc(fDrag);
+      vp[i]=V.sub(v[i],vel);
+    }
+    vp[i].y+=fGravity;//gravity
+    if(i<2)if((i==0 && v[3].x>0.)||(i==1 && v[3].y>0.)){//thrusters
+      let tmp=V.sub(vp[i],vp[2]);
+      tmp.mlc(fBlast);
+      vp[i].add(tmp);
+    }
+  }
+}
+function ost(k){//echo 701,blen=262144
+  k+=16384;return (0.00078125*((k*(k>>7 & k>>12))%256))-.1;
+}
+function _animate(){
+  requestAnimationFrame(_animate);
+  time=now();if(time<clock)return;
+  clock+=fpsMs;//-(n%fpsMs);
+  _draw();
+}
+function _draw(){
+  time=(time-st)/1000.0;
+  draw();
+  gl.uniform2f(gl.getUniformLocation(P,"res"),res.x,res.y);
+  for(let i=0;i<4;i++)gl.uniform2f(gl.getUniformLocation(P,"v"+i),v[i].x,v[i].y);
+  gl.uniform1f(gl.getUniformLocation(P,"time"),time);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,VP.numItems);
+}
+function fullScreen(el){//browser handles reverse on Esc
+ if( el.requestFullscreen ) el.requestFullscreen();
+ else if( el.msRequestFullscreen ) el.msRequestFullscreen();
+ else if( el.mozRequestFullScreen ) el.mozRequestFullScreen();
+ else if( el.webkitRequestFullscreen ) el.webkitRequestFullscreen( Element.ALLOW_KEYBOARD_INPUT );
+}
+function mouseDown(e){e.preventDefault();mouseZ=1.0;}
+function mouseUp(e){e.preventDefault();mouseZ=0.0;}
+function mouseMove(e){e.preventDefault();if(e.changedTouches)e=e.changedTouches[0];
+  var rect=c.getBoundingClientRect();
+  mouse.x=(e.clientX-rect.left)/rect.width;
+  mouse.y=1.-(e.clientY-rect.top)/rect.height;}
+function touchStart(e){mouseZ=1.0;mouseMove(e);}
+function keyDown(e){key=e.keyCode;if(e.keyCode>=32 && e.keyCode<=40)e.preventDefault();}
+function keyUp(e){if(key==e.keyCode)key=0.0;}
+
+function getShader(src, typ){
+  var shader=gl.createShader(typ);
+  gl.shaderSource(shader,src);
+  gl.compileShader(shader);
+  if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))alert(gl.getShaderInfoLog(shader));
+  return shader;
+}
+function script2Prog(F,VP){
+  const VS="attribute vec3 position;void main(void){gl_Position=vec4(position,1.0);}";
+  var fs=getShader(F.textContent,gl.FRAGMENT_SHADER);
+  var vs=getShader(VS,gl.VERTEX_SHADER);
+  var P=gl.createProgram();
+  gl.attachShader(P,vs);
+  gl.attachShader(P,fs);
+  gl.linkProgram(P);
+  if(!gl.getProgramParameter(P,gl.LINK_STATUS))alert("Could not initialise shader.");
+  gl.useProgram(P);
+  P.vertexPositionAttribute=gl.getAttribLocation(P,"position");
+  gl.enableVertexAttribArray(P.vertexPositionAttribute);
+  gl.vertexAttribPointer(P.vertexPositionAttribute, VP.itemSize, gl.FLOAT, false, 0, 0);
+  return P;
+}
+function A(a){//a=[{samps:24000,fill:ampk},{...}] 1 object for each sound effect
+ A.AC=null;   //required: samps=samples in buffer, ampk(k) is called for each sample k
+ if(!a)return;//optional: sampleRate:# is rate of recording, echo:# adds ampk(k-#)/2
+ A.buf=new Array(a.length);
+ try{A.AC=new (window.AudioContext || window.webkitAudioContext)();}
+ catch(error){window.alert("No WebAudioAPI support. "+error);return;}
+ for(let i=0;i<a.length;i++){
+  if(!a[i].samps || ! a[i].fill)alert("audio config error missing samps and/or fill");
+  if(!a[i].sampleRate)a[i].sampleRate=A.AC.sampleRate;
+  A.buf[i]=A.AC.createBuffer(1,a[i].samps,a[i].sampleRate);
+  if(!A.buf[i])alert("failed to create audio buffer, perform sanity check on samps and rate options");
+  var cd=A.buf[i].getChannelData(0);
+  for(let k=0;k<a[i].samps;k++){cd[k]=a[i].fill(k);if(a[i].echo)if(k>a[i].echo)cd[k]+=cd[k-a[i].echo]*.5;}
+ }
+}
+function plAy(n,O){if(!A.AC){console.log("A.AC does not exist");return;}
+  let src=A.AC.createBufferSource();//O is optional and can be null or {}, don't use false just leave out
+  src.buffer=A.buf[n];
+  var R={source:src},output=A.AC.destination,st=0;
+  if(O){
+    if(O.loop)src.loop=true;
+  }src.connect(output);src.start(st);return R;
+}
+function setup(){
+  NewGame();
+  c.addEventListener('mousedown',mouseDown,false);
+  c.addEventListener('mouseup',mouseUp,false);
+  c.addEventListener('mousemove',mouseMove,false);
+  c.addEventListener('touchstart',touchStart,false);
+  c.addEventListener('touchmove',mouseMove,false);
+  c.addEventListener('touchend',mouseUp,false);
+  document.addEventListener('keydown',keyDown,false);
+  document.addEventListener('keyup',keyUp,false);
+  now=window.performance.now?function(){return window.performance.now();}:function(){return Date.now;};
+  fpsMs=1000./40.;
+  if(!window.requestAnimationFrame){window.requestAnimationFrame=(function(){
+    return function(callback,element){window.setTimeout(callback,fpsMs);};})();}
+  gl=c.getContext('webgl', { antialias: false, depth: false, alpha: false } );
+  console.log(gl);
+  res.x=gl.viewportWidth=c.width;
+  res.y=gl.viewportHeight=c.height;
+  VP=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, VP);
+  var vertices = [1.0,  1.0,  0.0, -1.0,  1.0,  0.0, 1.0, -1.0,  0.0, -1.0, -1.0,  0.0];
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices),gl.STATIC_DRAW);
+  VP.itemSize = 3;
+  VP.numItems = 4;
+  P=script2Prog(fragShader,VP);
+  gl.clearColor(0.,0.,0.,1.);
+  st=clock=now();_animate();
+  A([{samps:262144,fill:ost,echo:701,sampleRate:3000}]);
+}
+function draw(){
+  Verlet();
+  if(key==LEFT_ARROW){iLeft=1.;fBlast=.025;}
+  if(key==RIGHT_ARROW){iRight=1.;fBlast=.025;}
+  v[3].x=iLeft;v[3].y=iRight;
+  if((iLeft || iRight) && !src)src=plAy(0,{loop:true});
+  if(mouseZ==0)iLeft=iRight=0.;
+  else {
+    if(mouse.x<.5)iLeft=1.; else iRight=1.;
+    fBlast=.05;
+  }
+}
+</script></head>
+<body onload="setup();" style="font-family:Sans-Serif;">
+<b>Bouncy</b> a small demo game
+<table>
+ <tr valign="top">
+  <td>
+   <canvas id="c" width="320" height="320"></canvas><br>
+   <button onclick="fullScreen(c);">Full Screen</button>
+  </td>
+  <td>
+   Use the arrow keys to thrust. Green is left arrow, blue is right. 
+   Or on a touch screen tap left for green, right for blue thruster.
+   Don't get them mixed up! Get to the top to achieve Jedi status. 
+   (there is no top)
+   <br><br>
+   This is an example of webgl and WebAudio.
+   Download this single page and run it anywhere (you're allowed). 
+   There are no external files needed.
+  </td>
+ </tr>
+</table>
+</body></html>

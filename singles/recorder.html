@@ -1,0 +1,222 @@
+<!DOCTYPE html><html><head><title>Dub Recorder</title>
+<meta charset="UTF-8">
+<script id="recordScript" type="js/jsawn">
+class Recorder extends AudioWorkletProcessor{
+  stopped=1;
+  static get parameterDescriptors(){return [{name:'record'}];}
+  process(inputs,outputs,parameters){
+    if(parameters['record'][0]){this.stopped=0;this.port.postMessage(inputs[0][0]);}
+    else if(!this.stopped){this.stopped=1;this.port.postMessage([]);}
+    return true;
+  }
+};
+registerProcessor('recorder',Recorder);
+</script>
+<script>
+var G,A=0,awn,mic,srcIn,srcOut,bufIn,bufOut,bufUndo,cd,co,BUFLEN,bufSamps=0,secs=1;
+var R={rate:44100,latency:0,mode:0,startTime:0,startSamp:0,recSecs:60,timeOut:0,cueStart:0,cueEnd:0,erased:0};
+async function setup(){
+  R.latency=Number(localStorage.getItem("latency"));
+  if(R.latency)if(!confirm("Latency was calculated as "+R.latency.toFixed(4)+" seconds. Use this value?"))R.latency=0;
+  var rs=localStorage.getItem("recSecs");if(!rs)rs="60";
+  R.recSecs=Number(prompt('seconds to record?',rs));
+  R.recSecs=Math.max(2,R.recSecs);secs=R.recSecs;console.log("seconds "+R.recSecs);
+  localStorage.setItem("recSecs",R.recSecs);
+  try{A=new AudioContext();
+   R.rate=A.sampleRate;
+   BUFLEN=R.rate*R.recSecs;
+   bufUndo=new Float32Array(BUFLEN);
+   bufIn=A.createBuffer(1,BUFLEN+32768,R.rate);
+   bufOut=A.createBuffer(1,BUFLEN+32768,R.rate);
+   cd=bufIn.getChannelData(0);
+   co=bufOut.getChannelData(0);
+  }catch(e){log("AudioContext: "+e.toString());}
+  drawWave();
+  try{mic=await navigator.mediaDevices.getUserMedia({audio:true});}catch(e){log("Mic: "+e.toString());}
+  try{await A.audioWorklet.addModule('data:text/javascript;base64,'+btoa(recordScript.textContent));
+   awn=new AudioWorkletNode(A,'recorder');
+   awn.port.onmessage=(e)=>{if(e.data.length>0){cd.set(e.data,bufSamps);bufSamps+=128;}else stopped();};
+   srcIn=A.createMediaStreamSource(mic);
+   srcIn.connect(awn);
+  }catch(e){log("AudioWorklet: "+e.toString());}  
+  if(!R.latency)beginLatencyCheck();else stopped();
+}
+function log(s){log.textContent+=s+"\n";}
+function dataToWav(datL,datR,samps,rate){//data to .wav file format
+  //'RIFF',36+bytes,'WAVE','fmt ',16=fmtSize,(1=pcm,channels),rate,bytesPerSec,(4=blockalign,16bits),'data'
+  const wavH=[0x52,0x49,0x46,0x46,0,0,0,0,0x57,0x41,0x56,0x45,0x66,0x6D,0x74,0x20,
+   16,0,0,0,1,0,1,0,0x80,0xBB,0,0,0x00,0x77,1,0,4,0,16,0,0x64,0x61,0x74,0x61];//40
+  let chans=datR?2:1; 
+  const bytes=samps*2*chans;
+  const wav=new Uint8Array(44+bytes);//44 header, bytes of data
+  if(!wav){alert("failed to create Uint8 typed array");return null;}
+  for(let i=0;i<wavH.length;i++)wav[i]=wavH[i];//header
+  let wl=bytes+36;wav[4]=wl&0xFF;wav[5]=(wl>>8)&0xFF;wav[6]=(wl>>16)&0xFF;wav[7]=(wl>>24)&0xFF;
+  let sr=rate;wav[24]=sr&0xFF;wav[25]=(sr>>8)&0xFF;wav[26]=(sr>>16)&0xFF;
+  sr=sr*2*chans;wav[28]=sr&0xFF;wav[29]=(sr>>8)&0xFF;wav[30]=(sr>>16)&0xFF;
+  wav[40]=bytes&0xFF;wav[41]=(bytes>>8)&0xFF;wav[42]=(bytes>>16)&0xFF;wav[43]=(bytes>>24)&0xFF;
+  let j=44;for(let i=0;i<samps;i++){
+    let a=32767*Math.min(1,Math.max(-1,datL[i]));
+    wav[j++]=a&0xFF;
+    wav[j++]=(a>>8)&0xFF;
+    if(datR){a=32767*Math.min(1,Math.max(-1,datR[i]));
+      wav[j++]=a&0xFF;
+      wav[j++]=(a>>8)&0xFF;
+    }
+  }return wav;
+}
+function triggerDL(data,filename) {//handles octet-stream
+  if(!data)return;
+  var blb=new Blob([data], {type: 'application/octet-stream'});//shove it in a blob with a generic type
+  var a=document.createElement("a"),url=URL.createObjectURL(blb);
+  a.href=url;//create a link, click it and remove link and url
+  a.download=filename;//filename determines mime type
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },0);
+}
+function save(){
+  var fname=prompt(".wav filename for save?");
+  if(fname.substring(fname.length-4,fname.length)!==".wav")fname+=".wav";
+  var wav=dataToWav(co,0,BUFLEN,R.rate);
+  triggerDL(wav,fname);
+}
+function drawWave(){
+  let ch=c.height/2;
+  G.clearRect(0,0,c.width,c.height);
+  G.beginPath();
+  G.moveTo(0,ch);
+  for(let x=0;x<c.width;x++){
+    let y=co[Math.floor(x/800*BUFLEN)]*ch+ch;
+    G.lineTo(x,y);
+  }G.stroke();
+}
+function drawCue(stc){if(!(R.mode||stc))return;
+  if(!stc)setTimeout(drawCue,125);
+  G.clearRect(R.cueStart,0,2,10);
+  R.cueStart=Math.floor(800*(stc?R.startSamp/BUFLEN:(A.currentTime-R.startTime+R.startSamp/R.rate)/R.recSecs));
+  G.fillRect(R.cueStart,0,2,10);
+  if(stc){G.clearRect(R.cueEnd,c.height-10,2,10);
+    R.cueEnd=Math.floor(800*bufSamps/BUFLEN);
+    G.fillRect(R.cueEnd,c.height-10,2,10);
+  }
+}
+function beginLatencyCheck(){
+  for(let i=0;i<256;i++)co[8192+i]=Math.sin(i*i);
+  secs=1;record();
+}
+function calcLatency(){
+  let b=-1,ba=10000;
+  for(let i=0;i<16384;i++){
+    let a=0;
+    for(let j=0;j<256;j++)a+=Math.abs(co[8192+j]-cd[i+j]);
+    if(a<ba){ba=a;b=i;}
+  }
+  R.latency=(b-8192)/R.rate;
+  R.latency=Number(prompt("latency in seconds calculated as:",R.latency));
+  erase();secs=R.recSecs;
+  for(let i=0;i<256;i++)co[8192+i]=0;
+  R.mode=0;stopped();drawWave();
+  localStorage.setItem("latency",R.latency);
+}
+function stopped(){
+  if(R.timeOut){clearTimeout(R.timeOut);R.timeOut=0;}
+  stp.disabled=true;rec.disabled=false;ply.disabled=false;
+  if(secs==1){calcLatency();R.mode=0;console.log("latency="+R.latency);}
+  if(R.mode===2)in2out();
+  R.mode=0;drawWave();drawCue(1);
+}
+function playing(){stp.disabled=false;rec.disabled=true;ply.disabled=true;}
+function in2out(){if(bufSamps-R.startSamp<20)return;
+  for(let i=0;i<10;i++){cd[R.startSamp+i]=cd[R.startSamp+i]*i/10;cd[bufSamps-1-i]=cd[bufSamps-1-i]*i/10;}
+  for(let i=R.startSamp;i<bufSamps;i++)co[i]+=cd[i];
+}
+function out2Undo(){for(let i=0;i<BUFLEN;i++)bufUndo[i]=co[i];}
+function stop(){
+  srcOut.stop(0);
+  if(R.mode===2)awn.parameters.get('record').setValueAtTime(0,0);
+  else stopped();
+}
+function record(){
+  out2Undo();R.mode=2;R.erased=0;playing();
+  bufSamps=R.startSamp;drawCue();
+  srcOut=A.createBufferSource();
+  srcOut.buffer=bufOut;
+  srcOut.connect(A.destination);
+  R.startTime=A.currentTime+.25;
+  srcOut.start(R.startTime-R.latency,R.startSamp/R.rate);
+  awn.parameters.get('record').setValueAtTime(1,R.startTime);
+  awn.parameters.get('record').setValueAtTime(0,R.startTime+secs);
+  console.log("recorded");
+}
+function play(){
+  R.mode=1;playing();drawCue();
+  srcOut=A.createBufferSource();
+  srcOut.buffer=bufOut;
+  srcOut.connect(A.destination);
+  R.startTime=A.currentTime;
+  srcOut.start(R.startTime,R.startSamp/R.rate);
+  R.timeOut=setTimeout(stopped,1000*(R.recSecs-R.startSamp/R.rate));
+  console.log("played");
+}
+function rewind(){R.startSamp=0;bufSamps=BUFLEN;drawCue(1);}
+function erase(){console.log("erase "+R.erased);
+  if(!R.erased){
+    if(bufSamps>BUFLEN)bufSamps=BUFLEN;
+    if(R.startSamp==0 && bufSamps==BUFLEN){
+      for(let i=0;i<BUFLEN;i++)co[i]=bufUndo[i];
+      R.erased=1;
+    }else{
+      if(bufSamps-R.startSamp<20)return;
+      for(let i=0;i<10;i++){
+        co[R.startSamp+i]=co[R.startSamp+i]*(1-i/10)+bufUndo[R.startSamp+i]*i/10;
+        co[bufSamps-10+i]=co[bufSamps-10+i]*i/10+bufUndo[bufSamps-10+i]*(1-i/10);
+      }
+      for(let i=R.startSamp+10;i<bufSamps-10;i++)co[i]=bufUndo[i];
+    }
+  }else if(confirm("the last dub is erased. erase ALL recording?"))for(let i=0;i<BUFLEN;i++){co[i]=0;bufUndo[i]=0;}
+  drawWave();
+}
+function cClick(e){if(R.mode)return;
+  if(!A)setup();else{
+    if(e.offsetY<50)R.startSamp=128*Math.floor(e.offsetX/800*BUFLEN/128);
+    else bufSamps=128*Math.floor(e.offsetX/800*BUFLEN/128);
+    drawCue(1);
+  }
+}
+function onLoad(){
+  playing();
+  G=c.getContext('2d');
+  G.fillStyle='#000000';
+  G.font="15px sans-serif";
+  G.fillText("Plug in microphone, point at speakers/headphones and click here.",50,50);
+  G.fillStyle='#FF0000';G.strokeStyle='#206080';
+  c.addEventListener('click',cClick);
+}
+</script></head>
+<body onload="onLoad();" style="font-family:sans-serif">
+<canvas id="c" width="800" height="100"></canvas><br>
+<button id="rew" onclick="rewind();">rewind &#x23ee</button>
+<button id="ply" onclick="play();">play &#x23f5</button>
+<button id="rec" onclick="record();">rec &#x23fa</button>
+<button id="stp" onclick="stop();">stop &#x23f9</button>
+<button id="clr" onclick="erase();">erase &#x2710</button>
+<button id="save" onclick="save();">save &#x270e</button>
+<div id="log"></div>
+Its a dub recorder. Record as many "tracks" as you like. You can always erase the last
+recording. Make sure the microphone can hear the speakers when you allow access as it
+calculates the roundtrip latency by playing a click and listening for it.<br>
+Select the start and end cues by clicking the top and bottom of the wave graph.
+Erase silences the selection/the last track if rewound/or all recording if the last
+track is already erased.<br> 
+This is an example of a very simple audio worklet to retrieve input from a microphone/jack.
+Worklets are typically in separate files as they run in separate processes but to
+create stand alone applications that can run from anywhere you can create a data module.
+<code>A.audioWorklet.addModule('data:text/javascript;base64,'+btoa(recordScript.textContent))</code>
+Put the worklet script in a script tag with a made up mime type so it isn't processed
+by the browser. Then convert it to base64 and give it a text/javascript mime type. Otherwise
+it will 'http-ify' the spaces as %20 etc.
+</body></html>

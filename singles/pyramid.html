@@ -1,0 +1,208 @@
+<!DOCTYPE html><html lang="en"><head><title>Hanoi's Pyramid</title>
+<meta charset="UTF-8">
+<meta name="description" content="A logical puzzle with a pyramid motif.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="HTML,javascript,canvas,game,puzzle">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<script>
+const MAX_PYR=10,W=400,H=275,pyr1=new Array(MAX_PYR),pyr2=new Array(MAX_PYR);
+var maxSlabs=3,startTime,bPyr,iInput=0,iTurn;
+
+function ResetPyr()
+{
+   iTurn=0;iInput=2;//force redraw
+   bPyr = true;
+   startTime = Date.now();
+   for (let i = 0;i<maxSlabs;i++){pyr1[i]=i;pyr2[i]=-1;}
+}
+
+function AddPyr(pyr, j)
+{
+   let bRet = false;
+   for (let i=0;i<maxSlabs;i++)
+      if(pyr[i]==-1)
+      {
+         pyr[i]=j;
+         bRet = true;
+         break;
+      }
+   return bRet;
+}
+
+function RemovePyrBottom(pyr)
+{
+   let iRet = -1;
+   if(pyr[0]!=-1)iRet = pyr[0];
+   for(let i=0;i<maxSlabs-1;i++)
+      pyr[i]=pyr[i+1];
+   pyr[maxSlabs-1]=-1;
+   return iRet;
+}
+
+function RemovePyrTop(pyr)
+{
+   let iRet = -1;
+   for (let i=maxSlabs-1;i>-1;i--)
+      if(pyr[i]!=-1)
+      {
+         iRet = pyr[i];
+         pyr[i]=-1;
+         break;
+      }
+   return iRet;
+}
+
+function MoveLeft()
+{
+   if(bPyr)
+   {
+      let i = RemovePyrTop(pyr1);
+      if (i!=-1) {AddPyr(pyr2,i);bPyr=!bPyr;}
+   }
+   else
+   {
+      let i = RemovePyrBottom(pyr1);
+      if (i!=-1) {AddPyr(pyr2,i);bPyr=!bPyr;}
+   }
+}
+
+function MoveRight()
+{
+   if(bPyr)
+   {
+      let i = RemovePyrTop(pyr2);
+      if (i!=-1) {AddPyr(pyr1,i);bPyr=!bPyr;}
+   }
+   else
+   {
+      let i = RemovePyrBottom(pyr2);
+      if (i!=-1) {AddPyr(pyr1,i);bPyr=!bPyr;}
+   }
+}
+
+function CheckDone()
+{
+   let bRet=true;
+   for(let i=0;i<maxSlabs;i++)
+      if(pyr2[i]!=i)
+      {
+         bRet = false;
+         break;
+      }
+   return bRet;
+}
+
+function cnsl(s){consl.textContent=s==0?"":s==1?"Move from the top of which pile?":
+                                           s==2?"Move from the bottom of which pile?":
+                                           s==3?"You have saved the pyramid!":
+                                                "The pyramid has flooded!";}
+class V{
+ x=0.;y=0.;z=0.;w=0.;
+ constructor(a,b,c,d){this.x=a;this.y=b;this.z=c;this.w=d;}
+ static c2(a){return new V(a,a);}
+ static c3(a){return new V(a,a,a);}
+}
+function G(C,F,O){//O={fboScript:'',onFrame:null,wrap:CLAMP,magFilter:NEAREST,minFilter:NEAREST}
+ G.u={res:V.c2(0.),time:0.,user:0.,key:0.,mouse:V.c3(0.)};//{uniform:{key:value,...}}
+ G.LEFT_ARROW=37;G.RIGHT_ARROW=39;G.UP_ARROW=38;G.DOWN_ARROW=40;G.LINEAR=9729;G.REPEAT=10497;
+ if(!O)O={};
+ if(O.onFrame)G.onFrame=O.onFrame;
+ G.buf=G.st=G.pt=0;
+ G.c=document.getElementById(C);
+ G.c.addEventListener('mousedown',mouseDown,false);
+ G.c.addEventListener('mouseup',mouseUp,false);
+ G.c.addEventListener('mousemove',mouseMove,false);
+ G.c.addEventListener('touchstart',touchStart,false);
+ G.c.addEventListener('touchmove',mouseMove,false);
+ G.c.addEventListener('touchend',mouseUp,false);
+ document.addEventListener('keydown',keyDown,false);
+ document.addEventListener('keyup',keyUp,false);
+ G.now=window.performance.now?function(){return window.performance.now();}:function(){return Date.now;};
+ if(O.fps){G.fpsMs=1000/O.fps;G.clock=G.now()-1;}
+ if(!window.requestAnimationFrame){window.requestAnimationFrame=(function(){
+   return function(callback,element){window.setTimeout(callback,G.fpsMs);};})();
+ }
+ G.paused=true;togglePause();
+ if(F==="2D"){G.d=G.c.getContext("2d");_animate();return;}
+}
+function togglePause(){//if called do this-->onFrame(){if(G.paused)return;
+  if(G.paused){G.st=G.now()-G.pt;_pauseAnim();G.paused=false;}
+  else {_pauseAnim();}
+}
+function _pauseAnim(){G.paused=true;G.pt=G.now()-G.st;}
+function _animate(){requestAnimationFrame(_animate);
+  if(G.fpsMs){var n=G.now();if(n<G.clock)return;G.clock+=G.fpsMs-(n%G.fpsMs);}
+  if(!G.paused)_draw();
+}
+function _draw(){
+  G.u.time=(G.now()-G.st)/1000.0;
+  if(G.onFrame)G.onFrame();
+}
+function mouseDown(e){e.preventDefault();G.u.mouse.z=1.0;}
+function mouseUp(e){e.preventDefault();G.u.mouse.z=0.0;}
+function mouseMove(e){e.preventDefault();if(e.changedTouches)e=e.changedTouches[0];
+  var rect=G.c.getBoundingClientRect();
+  G.u.mouse.x=(e.clientX-rect.left)/rect.width;
+  G.u.mouse.y=1.-(e.clientY-rect.top)/rect.height;}
+function touchStart(e){G.u.mouse.z=1.0;mouseMove(e);}
+function keyDown(e){G.u.key=e.keyCode;if(e.keyCode>=32 && e.keyCode<=40)e.preventDefault();}
+function keyUp(e){if(G.u.key==e.keyCode)G.u.key=0.0;}
+
+function setup(){
+  ResetPyr();
+  G('c','2D',{onFrame:checkInput,fps:20});
+  G.d.shadowOffsetY=1;G.d.shadowOffsetY=2;
+  G.d.shadowColor='#1f1f1f';G.d.shadowBlur=2;
+}
+
+function draw(){
+  G.d.fillStyle='#402080';
+  G.d.fillRect(0,0,W,80);
+  G.d.fillStyle='#408000';
+  G.d.fillRect(0,80,W,20);
+  G.d.fillStyle='#804020';
+  G.d.fillRect(0,100,W,H-100);
+  G.d.fillStyle='#FF8040';
+  for(let i=0;i<maxSlabs;i++){
+     if(pyr1[i]!=-1)G.d.fillRect(100-(maxSlabs-pyr1[i])*5,150-i*10,(maxSlabs-pyr1[i])*10,10);
+     if(pyr2[i]!=-1)G.d.fillRect(300-(maxSlabs-pyr2[i])*5,100-i*10,(maxSlabs-pyr2[i])*10,10);
+  }
+  var time = (Date.now()-startTime)/1000;
+  G.d.fillStyle='#4080FF';
+  if(time<H/2){
+     G.d.fillRect(0,H-time,W,time);
+     if(CheckDone()){cnsl(3);maxSlabs++;ResetPyr();}
+     else if(bPyr)cnsl(1);
+     else cnsl(2);
+   }else{
+     G.d.fillRect(0,H/2,W,H/2);
+     cnsl(4);
+   }
+}
+
+function checkInput(){
+   if(iInput>1)draw();
+   if(iInput>0 && (G.u.mouse.z>0. || G.u.key>0))return;
+   iInput=0;
+   let iMove=0;
+   if(G.u.mouse.z>0.){iInput=1;if(G.u.mouse.x<.5)iMove=1;else iMove=2;}
+   else if(G.u.key>0.){iInput=1;if(G.u.key==G.LEFT_ARROW)iMove=1;else if(G.u.key==G.RIGHT_ARROW)iMove=2;}
+   if(iMove==1)MoveLeft();else if(iMove==2)MoveRight();
+   if(iMove>0){turn();draw();}
+}
+function turn(){iTurn++;trn.textContent=iTurn;}
+function next(){maxSlabs++;if(maxSlabs==MAX_PYR)maxSlabs=3;ResetPyr();}
+</script>
+</head><body onload="setup();" style='font-family:sans-serif'><b>Hanoi's Pyramid</b>
+You've heard of the rings of Hanoi but probably haven't heard of the pyramid of Hanoi.
+Long ago the maji came to the king to warn him the rising river threatened to flood
+the pyramid that sat on its bank. The king put all his men to work on it in 2 shifts.
+The 1st shift would move the top of the pyramid and the second crew would move the bottom.
+Your job is to direct which pile they should move from. To practice we will start with small
+pyramids and work our way up. Use the mouse or arrow keys to direct the workers.<br>
+<canvas id="c" width="400" height="275"></canvas><br>
+<button onclick="next();">Next</button> Turns:<span id="trn" width="50">0</span> 
+<button onclick="ResetPyr();">Retry</button>
+<span id="consl" style="color:red;"></span>
+</body></html>

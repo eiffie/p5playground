@@ -1,0 +1,87 @@
+<!DOCTYPE html><html lang="en"><head><title>Icon Editor</title>
+<meta charset="UTF-8">
+<meta name="description" content="Client side favicon editor.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="favicon,icon,editor,utility,offline,HTML,javascript">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<script>
+const ico=new Array(3262);//62 header, 3072 data, 128 mask, bytes
+const icoH=[0,0,1,0,1,0,32,32,0,0,1,0,24,0,168,12,0,0,22,0,0,0,40,0,0,0,32,0,0,0,
+ 64,0,0,0,1,0,24,0,0,0,0,0,0,12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+const HSIZE=62;
+
+function dataToIco(data){
+  for(let i=0;i<HSIZE;i++)ico[i]=icoH[i];//haeder
+  for(let i=HSIZE+3072;i<HSIZE+3072+128;i++)ico[i]=0;//clear mask
+  for(let y=0;y<32;y++)for(let x=0;x<32;x++){
+    let i=y*32+x,j=(31-y)*32+x;
+    ico[HSIZE+i*3]=data[j*4];
+    ico[HSIZE+i*3+1]=data[j*4+1];
+    ico[HSIZE+i*3+2]=data[j*4+2];
+    if(data[j*4+3]<128){
+      let idx=HSIZE+3072+(i-(i%8))/8,bit=1<<(7-(i%8));
+      ico[idx]|=bit;
+    }
+  }
+  return new Uint8Array(ico);
+}
+
+function download(data,filename,typ) {//handles text or octet-stream
+  var blb=new Blob([data], {type: typ});//shove it in a blob with a generic type
+  var a=document.createElement("a"),url=URL.createObjectURL(blb);
+  a.href=url;//create a link, click it and remove link and url
+  a.download=filename;//filename determines mime type, typ determines text/binary
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },0);
+}
+function uploadFile(filename,tArea){//misnomer: nothing leaves the client
+  var fr=new FileReader();
+  fr.onload=function(){tArea.value=fr.result;};
+  fr.readAsText(filename);
+}
+var G;
+function setup(){
+  G=c.getContext("2d");
+}
+function preview(){
+  G.clearRect(0,0,32,32);
+  G.beginPath();
+  G.fillStyle='#000000';
+  G.strokeStyle='#000000';
+  try{eval(txtar.value);}catch(e){alert(e);}
+}
+function saveIco(){
+  let img=G.getImageData(0,0,32,32);
+  console.log(img);
+  download(dataToIco(img.data),savefile.value,'application/octet-stream');
+}
+</script>
+</head>
+<body onload="setup();">
+<div>
+<button onclick="openfile.click();">Open Text</button>
+<span id="openSpn"></span>
+<input id="openfile" name="openfile" type="file" style="display:none;"
+ onchange="uploadFile(this.files[0],txtar);openSpn.textContent=this.files[0].name;"><br>
+<input id="savetext" name="savetext" type="text">
+<button onclick="download(txtar.value,savetext.value,'text/plain');">Save Text</button><br>
+<input id="savefile" name="savefile" type="text">
+<button onclick="saveIco();">Save ICO</button><br>
+<button onclick="navigator.clipboard.writeText(txtar.value);">copy</button>
+<button onclick="preview();">Preview</button>
+<canvas id="c" width="32" height="32" style="border:1px solid #000000;"></canvas><br>
+<textarea id="txtar" name="txtar" rows="15" cols="40" autocorrect="off" spellcheck="false">
+</textarea><br>
+</div>
+<div>
+<b>Instructions:</b><br>
+Enter drawing code to create a 32x32 icon. Use G.fillStyle='#000000' to set rgb colors.
+G.fillRect(x,y,w,h), G.arc(x,y,r,sa,ea);G.fill() to fill and
+G.strokeStyle='#FF0000', G.beginPath(), G.moveTo(x,y), G.lineTo(x,y), G.stroke() to
+draw lines. G.fillText(string,x,y), G.font="32px sans-serif" for text.
+</div></body></html>
