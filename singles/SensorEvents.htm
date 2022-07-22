@@ -1,0 +1,26 @@
+<!DOCTYPE html><html><head><title>SensorEvents</title>
+<meta charset="UTF-8">
+<script>
+function clear(){tl.value='';}
+function log(o){//list all methods and properties of an object or display value if not
+  if(typeof(o)!='object'){tl.value+=o+'\n';return;}
+  let props=new Set(),co=o;
+  do{Object.getOwnPropertyNames(co).map(item=>props.add(item));}
+  while((co=Object.getPrototypeOf(co)));
+  tl.value+=[...props.keys()].map(item=>' '+item+(typeof o[item]==='function'?'('+o[item].length+')'
+   :typeof o[item]==='object'?'{}':'')).sort()+'\n';
+}
+function sens(e){
+  clear();//log(e);
+  log("x="+e.accelerationIncludingGravity.x);
+  log("y="+e.accelerationIncludingGravity.y);
+  log("z="+e.accelerationIncludingGravity.z);
+}
+function setup(){
+  addEventListener('devicemotion',sens,false);
+}
+</script>
+</head>
+<body onload="setup();">
+<textarea id="tl" cols="40" rows="25" readonly="true">test of device motion</textarea>
+</body></html>
