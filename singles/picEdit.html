@@ -1,0 +1,68 @@
+<!DOCTYPE html><html><head><title>PicEdit</title>
+<meta charset="UTF-8">
+<script>
+var G,I,A;
+
+function clear(){tl.value='';}
+function log(o){//list all methods and properties of an object or display value if not
+  if(typeof(o)!='object'){tl.value+=o+'\n';return;}
+  let props=new Set(),co=o;
+  do{Object.getOwnPropertyNames(co).map(item=>props.add(item));}
+  while((co=Object.getPrototypeOf(co)));
+  tl.value+=[...props.keys()].map(item=>' '+item+(typeof o[item]==='function'?'('+o[item].length+')'
+   :typeof o[item]==='object'?'{}':'')).sort()+'\n';
+}
+function tap(e){log(e.offsetX+','+e.offsetY);}
+function run(){try{eval(ta.value);}catch(e){clear();log(e.toString());}}
+function loadImg(name,fr){
+  I=new Image();
+  let ext=name.slice(name.lastIndexOf('.')+1);
+  I.src='data:image/'+ext+';base64,'+btoa(fr.result);
+  log("loaded: "+name);
+}
+function upload(ifile){
+  var fr=new FileReader();
+  let ext=ifile.name.slice(ifile.name.lastIndexOf('.')+1);
+  if(ext==="txt"){
+    fr.onload=function(){ta.value=fr.result;};
+    fr.readAsText(ifile);
+  }else{
+    fr.onload=function(){loadImg(ifile.name,fr);};
+    fr.readAsBinaryString(ifile);
+  }
+}
+function download(blb,filename) {//handles any blob
+  var a=document.createElement("a"),url=URL.createObjectURL(blb);
+  a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},0);
+}
+function setup(){
+  G=C.getContext('2d');
+  C.addEventListener('click',tap,false);
+}
+</script></head>
+<body onload="setup();">
+<input type="file" name="ifile" id="ifile" onchange="upload(this.files[0]);"><br>
+<canvas id="C" width="320" height="320" style="border:1px solid #808080;"></canvas><br>
+<textarea id="ta" rows="15" cols="40" spellcheck="false" autocapitalize="none" autocorrect="off" autocomplete="off"
+ style="overscroll-behavior:none;">
+log(G);
+</textarea><br>
+<button onclick="run();">&gt</button>
+<button onclick="download(new Blob([ta.value],{type:'text/plain'}),savefile.value+'.txt');">.txt</button>
+<input id="savefile" name="savefile" type="text" value="savefile">
+<button onclick="C.toBlob(function(blob){download(blob,savefile.value+'.png');});">.png</button><br>
+Globals: C=canvas, G=graphics, I=image, A=array<br>
+log(value/object), clear(), click for coords<br>
+<textarea id="tl" rows="15" cols="40" spellcheck="false" disabled="true"
+ style="overscroll-behavior:none;"></textarea><br>
+Useful graphics functions:<br>
+G.drawImage(I,sx,sy[,sw,sh,dx,dy,dw,dh])<br>
+var img=G.getImageData(x,y,w,h);<br>
+img.data[(y*w+x)*4]=255;//manipulate<br>
+G.putImageData(img,x,y);<br>
+G.strokeStyle='#000000';G.beginPath();G.moveTo(x,y);G.lineTo(x2,y2);G.stroke();<br>
+G.fillStyle='rgba(r,g,b,a)';G.fillRect(x,y,w,h);G.beginPath()...G.fill();<br>
+G.font='15px sans-serif';G.fillText("hello",x,y);<br>
+G.shadowOffsetX=1;G.shadowOffsetY=4;G.shadowColor='#202020';G.shadowBlur=2;<br>
+Use G.canvas.width/height to create a new image.</body></html>

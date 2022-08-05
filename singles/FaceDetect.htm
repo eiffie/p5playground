@@ -1,0 +1,68 @@
+<html>
+<head>
+<script>
+var G,img;
+function log(s){
+  msg.textContent+=s+' ';
+}
+const detectFace = () => {
+  if(!window.FaceDetector){
+    log('Unsupported Version or Feature is not enabled');
+    return;
+  }else log('detecting');
+  const faceDetector = new FaceDetector();
+  faceDetector
+    .detect(img)
+    .then(faces => 
+      faces.map(face => face.boundingBox)
+    )
+    .then(faceBoxes => {
+      faceBoxes.forEach(faceBox => {
+        const height=Math.floor(faceBox.height),
+         width=Math.floor(faceBox.width),
+         top=Math.floor(faceBox.top),
+         left=Math.floor(faceBox.left);
+       
+        G.strokeRect(left,top,width,height);
+        log(left+','+top+','+width+','+height);
+      });
+    })
+    .catch(err => log(err.toString()));
+};
+function setup(){
+  G=c.getContext('2d');log("started");
+}
+function imgLoaded(){log('loaded');
+  c.width=img.width;
+  c.height=img.height;
+  G.drawImage(img,0,0);
+  G.strokeStyle='#00ff00';
+  detectFace();
+  log('done');
+}
+function loadImg(){try{
+  img=new Image();
+  img.addEventListener('load',imgLoaded,false);
+  if(purl.value.substring(0,4)==='http'){
+    img.crossOrigin='Anonymous';
+    img.src=purl.value;
+  }else{//file
+    var fr=new FileReader();
+    fr.onload=function(){
+      let ext=purl.value.slice(purl.value.lastIndexOf('.')+1);
+      img.src='data:image/'+ext+';base64,'+btoa(fr.result);
+    };
+    fr.readAsBinaryString(ifile.files[0]);
+  }
+  }catch(e){log(e.toString());return;}
+  log("waiting");
+}
+</script>
+</head>
+<body onload="setup();">
+<button onclick="ifile.click();">file</button>
+<input type="file" name="ifile" id="ifile" style="display:none;" onchange="purl.value=this.files[0].name;loadImg();">
+<input type="text" id="purl" name="purl" value="https://i.imgur.com/emkmZOM.jpeg">
+<button onclick="loadImg();">&gt</button>
+<br><canvas id="c" width="360" height="360"></canvas><br>
+<div id="msg"></div></body></html>

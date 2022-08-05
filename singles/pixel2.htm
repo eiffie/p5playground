@@ -1,0 +1,92 @@
+<html><head><title>Pixels</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script>
+let magicH=[0,0x61,0x73,0x6d],vers=[1,0,0,0];
+let typeSec=[1,8,1,0x60,3,0x7f,0x7f,0x7f,1,0x7f],funcSec=[3,2,1,0];
+let exportSec=[7,9,1,5,0x70,0x69,0x78,0x65,0x6c,0,0];
+let codeSec=[10,0,1,0];
+var G,F,I,t;
+function setup(){
+  G=C.getContext('2d');
+  I=G.getImageData(0,0,C.width,C.height);
+}
+function draw(){
+  for(let y=0;y<C.height;y++)for(let x=0;x<C.width;x++){
+    let f=F(x,y,t),i=(y*C.width+x)*4;
+    I.data[i]=I.data[i+1]=I.data[i+2]=f%256;
+    I.data[i+3]=255;
+  }G.putImageData(I,0,0);
+}
+function goJS(s){t=0;try{eval('F=function(x,y,t){let f='+s+';return f;};');anim();}catch(e){msg.textContent=e.toString();}}
+async function go(s){t=0;
+  s=s.split(" ");
+  let machcode=new Array(s.length);
+  for(let i=0;i<s.length;i++)machcode[i]=parseInt(s[i],16);
+  codeSec[1]=machcode.length+2;codeSec[3]=machcode.length;
+  var m=Uint8Array.from([...magicH,...vers,...typeSec,...funcSec,...exportSec,...codeSec,...machcode]);
+  try{wasm=await WebAssembly.instantiate(m);}catch(e){msg.textContent=e.toString();return;}
+  F=wasm.instance.exports.pixel;
+  msg.textContent="";anim();
+}
+function prev(){t=t-1;draw();}
+function anim(){draw();t=t+1;if(ani.textContent==="||")setTimeout(anim,40);}
+function download(blb,filename) {//handles any blob
+  var a=document.createElement("a"),url=URL.createObjectURL(blb);
+  a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},0);
+}
+function doc2htm(d){
+  var s="<html>"+document.documentElement.innerHTML+"</html>";
+  s=s.replace("</b"+"ody>","<button onclick=\"ta.value='"+d+"';\">&#x0808</button>\n</bo"+"dy>");
+  return s;
+}
+function leb128(ti){var n;//encode constants
+  try{n=Number(ti.value);}catch(e){
+    msg.textContent=e.toString();return;}
+  ti.value="";
+  while(n>0){
+    var byte=n&127;
+    n>>>=7;if(n!==0)byte|=128;
+    ti.value+=byte.toString(16)+' ';
+  }
+}
+function save(fname){
+  let i=fname.lastIndexOf('.')+1;
+  var ext=fname.substring(i,i+3).toLowerCase();
+  if(ext==="png")
+    C.toBlob(function(blob){download(blob,fname);});
+  else if(ext==="htm")
+    download(new Blob([doc2htm(ta.value)],{type:'text/html'}),fname);
+  else download(new Blob([ta.value],{type:'text/plain'}),fname);
+}
+</script></head>
+<body onload="setup();">
+<canvas id="C" width="256" height="256"></canvas><br>
+<button id="ani" onclick="if(this.textContent==='>'){this.textContent='||';go(ta.value);}else this.textContent='>';">&gt;</button>
+<button onclick="leb128(sfile);">128</button>
+<input id="sfile" name="sfile" type="text" value="#.txt.png.htm" size="13" spellcheck="false" autocapitalize="none" autocorrect="off">
+<button onclick="save(sfile.value);">s</button>
+<button onclick="prev();">&lt;</button><br>
+<table><tbody><tr><td>
+<textarea id="ta" rows="15" cols="24" spellcheck="false" autocapitalize="none" autocorrect="off" style="scrollbar-gutter:stable;">00 20 00 20 01 71 20 02 6c 0b</textarea>
+</td><td>20 get<br>41 cst<br>6a add<br>6b sub<br>6c mul<br>6d div<br>
+70 mod<br>71 and<br>72 or<br>73 xor<br>74 shl<br>76 shr</td></tr></tbody></table><br>
+<button onclick="if(this.textContent==='>'){ani.textContent=this.textContent='||';goJS(ti.value);}else ani.textContent=this.textContent='>';">&gt;</button>
+<input type="text" id="ti" name="ti" value="(x&amp;y)*t" spellcheck="false" autocapitalize="none" size="30">
+<br><span id="msg" style="color:red;"></span><br>
+<button onclick="ta.value='00 20 00 20 01 6c 20 02 6c 0b';">ࠈ</button>
+<button onclick="ta.value='00 20 00 20 00 6c 20 01 20 01 6c 6a 20 02 6c 0b';">ࠈ</button>
+<button onclick="ta.value='00 20 00 20 00 6c 20 01 20 01 6c 6b 41 80 80 04 6a 20 02 6c 0b';">ࠈ</button>
+<button onclick="ta.value='01 02 7f 20 00 20 01 6a 21 03 20 00 20 01 6b 41 80 01 6a 21 04 20 03 20 03 6c 20 04 6c 20 04 20 04 6c 20 03 6c 6b 41 80 80 80 08 6a 20 02 6c 0b';">ࠈ</button>
+<button onclick="ta.value='01 02 7f 20 00 20 01 6a 21 03 20 01 20 00 6b 41 80 01 6a 21 04 20 03 20 04 71 20 02 6c 0b';">ࠈ</button>
+<button onclick="ta.value='00 20 00 20 01 73 20 02 6c 0b';">ࠈ</button>
+<button onclick="ta.value='00 20 00 20 01 71 20 02 6c 0b';">ࠈ</button>
+<button onclick="ta.value='00 20 00 20 00 6c 20 01 20 01 6c 73 20 02 6c 0b';">ࠈ</button>
+<button onclick="ta.value='00 20 00 41 04 76 20 01 41 04 76 71 20 00 20 01 73 72 20 02 6c 0b';">ࠈ</button>
+<button onclick="ta.value='00 20 00 20 01 41 01 6a 70 20 01 20 00 41 01 6a 70 71 20 02 6c 0b';">ࠈ</button>
+<button onclick="ta.value='00 20 00 20 01 71 20 00 41 04 76 20 01 41 04 76 71 6c 20 02 6c 0b';">ࠈ</button>
+<button onclick="ta.value='00 20 00 20 00 6c 20 01 20 01 6c 72 20 02 6c 0b';">ࠈ</button>
+<button onclick="ta.value='00 20 00 20 00 6c 20 01 20 01 6c 73 20 02 6c 0b';">ࠈ</button>
+<button onclick="ta.value='00 20 00 20 00 6c 41 80 01 70 20 01 20 01 6c 41 80 01 70 6c 20 02 6c 0b';">&#x0808</button>
+</body></html>

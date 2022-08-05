@@ -1,0 +1,224 @@
+<!DOCTYPE html><html lang="en"><head><title>Ball Drop</title>
+<meta charset="UTF-8">
+<meta name="description" content="Template for framebuffer and screen shaders.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="webgl,HTML,javascript,canvas">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<script id="fragShader" type="x-shader/x-fragment">
+precision highp float;
+uniform vec2 res;
+uniform float u[26];
+float segment(vec2 uv){//from Andre https://www.shadertoy.com/view/Xsy3zG
+ uv = abs(uv);return (1.0-smoothstep(0.0,0.28,uv.x)) * (1.0-smoothstep(0.4-0.14,0.4+0.14,uv.y+uv.x));}
+float sevenSegment(vec2 uv,int num){
+ uv=(uv-0.5)*vec2(1.5,2.2);
+ float seg=0.0;if(num>=2 && num!=7 || num==-2)seg+=segment(uv.yx);
+ if (num==0 || (uv.y<0.?((num==2)==(uv.x<0.) || num==6 || num==8):(uv.x>0.?(num!=5 && num!=6):(num>=4 && num!=7) )))seg += segment(abs(uv)-0.5); 
+ if (num>=0 && num!=1 && num!=4 && (num!=7 || uv.y>0.))seg += segment(vec2(abs(uv.y)-1.0,uv.x)); 
+ return seg;}
+//prints a "num" filling the "rect" with "spaces" # of digits including minus sign
+float formatInt(vec2 uv, vec2 rect, float num, int spaces){//only good up to 6 spaces!
+ uv/=rect;if(uv.x<0.0 || uv.y<0.0 || uv.x>1.0 || uv.y>1.0)return 0.0;
+ uv.x*=float(spaces);
+ float place=floor(uv.x);
+ float decpnt=floor(max(log(num)/log(10.0),0.0));//how many digits before the decimal place
+ uv.x=fract(uv.x);
+ num+=0.000001*pow(10.,decpnt);
+ num /= pow(10.,float(spaces)-place-1.0);
+ num = mod(floor(num),10.0);
+ return sevenSegment(uv,int(num));}
+void main(){
+  vec2 uv=gl_FragCoord.xy/res,b=vec2(u[0],u[1])-uv;
+  float d=length(b)-.05,db=d;
+  for(int i=4;i<24;i+=2){
+    vec2 v=vec2(u[i],u[i+1]);
+    d=min(d,length(uv-v)-.025);
+  }
+  vec3 col=vec3(abs(sin(uv*10.*sin(uv.yx*281.25)))*.3,0.).xzy;
+  if(d<0.){
+    if(d==db){float a=u[0]*44.+atan(b.y,b.x)*2.5;col=mix(col,(abs(vec3(sin(a),sin(a+1.),sin(a+1.5)))-d/.075)*sqrt(-d/.05),smoothstep(0.,-.005,d));}
+    else col=mix(col,abs(vec3(sin(d*200.))),smoothstep(0.,-0.005,d));
+  }
+  gl_FragColor=vec4(col,1.);
+  d=formatInt(uv-vec2(0.05,0.9), vec2(0.05,0.05), floor(u[25]), 2);
+  gl_FragColor=mix(gl_FragColor,vec4(1.0,0.5,0.0,1.0),d);
+}
+</script>
+<script>
+var G,P,U={mX:0,mY:0,mZ:0},A=new Array(25),sel=0,paused=true,uRes,uu,R=.1,st=0,bd=0,sc=0;
+function newGame(){
+  sel=0;
+  A[0]=.5;A[1]=1;A[2]=0;A[3]=0;
+  for(let i=4;i<A.length;i++)A[i]=Math.random()*.98+.01;
+  A[24]=A[4]+(A[4]>.5?-20:20)/500;
+  for(let i=5;i<A.length;i+=2)if(A[i]<.4 && Math.abs(A[i-1]-A[24])<R)A[i]+=.2;
+  A[21]=A[23]=0.;A[20]=A[24]-R*3/4;A[22]=A[24]+R*3/4;
+  A[25]=bd>0?100*sc/bd:0;
+}
+function ui(){fullScreen(c);}
+function length(x1,y1,x2,y2){let x=x1-x2,y=y1-y2;return Math.sqrt(x*x+y*y);}
+function dot(x1,y1,x2,y2){return x1*x2+y1*y2;}
+function loop(){
+  let R2=R/2,rad=R/4;
+  if(sel<2){
+    A[0]=U.mX;if(performance.now()<st)newGame();
+    if(st===0 && U.mZ){st=0.001;setTimeout(ui,500);}
+    if(U.mZ && sel%2 || !U.mZ && !sel%2){sel+=1;msg.textContent="";}
+  }else{
+    A[3]-=0.0005;
+    A[0]+=A[2];A[1]+=A[3];
+    for(let i=4;i<24;i+=2){
+      let d=length(A[0],A[1],A[i],A[i+1]);
+      if(d<R2+rad){let nx=(A[0]-A[i])/d;let ny=(A[1]-A[i+1])/d;
+        let h=-dot(nx,ny,A[2],A[3]);
+        if(h>0.0){
+          if(h>.005)plAy(1,{gain:h/0.2,randomize:true});
+          A[2]+=h*2.*nx;A[3]+=h*2.*ny;//I - 2 * dot(N, I) * N
+          A[2]*=.75;A[3]*=.75;
+          A[0]+=nx*(R2+rad-d);A[1]+=ny*(R2+rad-d);
+        }
+      }
+    }
+    if(A[0]<R2){A[0]=R2;if(A[2]<0)A[2]*=-.75;}
+    if(A[0]>1-R2){A[0]=1-R2;if(A[2]>0)A[2]*=-.75;}
+    if(A[1]<R2){
+      if(A[0]>A[24]-R/4 && A[0]<A[24]+R/4){
+        if(A[1]<-R2){plAy(0,{randomize:true});msg.textContent="Coin Drop winner!";sel=0;st=performance.now()+1000.;bd++;sc++;}
+      }else{A[1]=R2;if(A[3]<0)A[3]*=-.75;}
+    }
+    if(U.mZ>0 && A[1]<.9){bd++;newGame();}
+  }
+}
+function Audio(a){//a=[{samps:24000,fill:ampk},{...}] 1 object for each sound effect
+ Audio.AC=null;   //required: samps=samples in buffer, ampk(k) is called for each sample k
+ if(!a)return;//optional: sampleRate:# is rate of recording, echo:# adds ampk(k-#)/2
+ Audio.buf=new Array(a.length);
+ try{Audio.AC=new (window.AudioContext || window.webkitAudioContext)();}
+ catch(error){window.alert("No WebAudioAPI support. "+error);return;}
+ for(let i=0;i<a.length;i++){
+  if(!a[i].samps || ! a[i].fill)alert("audio config error missing samps and/or fill");
+  if(!a[i].sampleRate)a[i].sampleRate=Audio.AC.sampleRate;
+  Audio.buf[i]=Audio.AC.createBuffer(1,a[i].samps,a[i].sampleRate);
+  if(!Audio.buf[i])alert("failed to create audio buffer, perform sanity check on samps and rate options");
+  var cd=Audio.buf[i].getChannelData(0);
+  for(let k=0;k<a[i].samps;k++){cd[k]=a[i].fill(k);if(a[i].echo)if(k>a[i].echo)cd[k]+=cd[k-a[i].echo]*.5;}
+ }
+}//O defaults {randomize:false,rate:1,gain:1,pan:0,detune:0,loop:false,startTime:0}
+function plAy(n,O){if(!Audio.AC){console.log("Audio.AC does not exist");return;}
+  let src=Audio.AC.createBufferSource();//O is optional and can be null or {}, don't use false just leave out
+  src.buffer=Audio.buf[n];
+  var R={source:src},output=Audio.AC.destination,st=0;
+  if(O){
+    if(O.gain){
+      var gn=Audio.AC.createGain();
+      gn.connect(output);output=gn;
+      gn.gain.value=O.gain;
+      R.gain=gn;
+    }if(O.pan){
+      var pn=O.pan=="3D"?Audio.AC.createPanner():Audio.AC.createStereoPanner();
+      pn.connect(output);output=pn;
+      if(O.pan!="3D")pn.pan.value=O.pan;
+      R.pan=pn;
+    }if(O.randomize)src.playbackRate.setValueAtTime(1.+Math.random()*.1,0);
+    if(O.rate)src.playbackRate.setValueAtTime(O.rate,0);
+    if(O.detune)src.detune.setValueAtTime(O.detune,0);
+    if(O.loop)src.loop=true;
+    if(O.startTime)st=O.startTime;
+  }src.connect(output);src.start(st);return R;
+}
+function fullScreen(el){//browser handles reverse on Esc
+ if( el.requestFullscreen ) el.requestFullscreen();
+ else if( el.msRequestFullscreen ) el.msRequestFullscreen();
+ else if( el.mozRequestFullScreen ) el.mozRequestFullScreen();
+ else if( el.webkitRequestFullscreen ) el.webkitRequestFullscreen( Element.ALLOW_KEYBOARD_INPUT );
+}
+function mouseDown(e){e.preventDefault();U.mZ=1.0;}
+function mouseUp(e){e.preventDefault();U.mZ=0.0;}
+function mouseMove(e){e.preventDefault();if(e.changedTouches)e=e.changedTouches[0];
+  var rect=c.getBoundingClientRect();
+  let a=(rect.width*c.height)/(rect.height*c.width);
+  if(a>1.)U.mX=(e.clientX-rect.left-.5*(rect.width-rect.width/a))*a/rect.width;
+  else U.mX=(e.clientX-rect.left)/rect.width;
+  if(a<1.)U.mY=1.-(e.clientY-rect.top-.5*(rect.height-rect.height*a))/(rect.height*a);
+  else U.mY=1.-(e.clientY-rect.top)/rect.height;
+}
+function touchStart(e){U.mZ=1.0;mouseMove(e);}
+function keyDown(e){U.key=e.keyCode;if(e.keyCode>=32 && e.keyCode<=40)e.preventDefault();}
+function keyUp(e){if(U.key===e.keyCode)U.key=0.0;}
+
+function getShader(src, typ){//utility functions for compiling a shader program
+  var shader=G.createShader(typ);
+  G.shaderSource(shader,src);
+  G.compileShader(shader);
+  if(!G.getShaderParameter(shader,G.COMPILE_STATUS)){
+    var et=G.getShaderInfoLog(shader);
+    G.deleteShader(shader);
+    alert(et);console.log(et);return 0;
+  }return shader;
+}
+function script2Prog(src){//compile, link and set attributes on a shader program
+  let FS=getShader(src,G.FRAGMENT_SHADER);
+  if(!FS){console.log("no FS");return 0;}
+  let P=G.createProgram();
+  G.attachShader(P,G.VS);
+  G.attachShader(P,FS);
+  G.linkProgram(P);
+  if(!G.getProgramParameter(P,G.LINK_STATUS)){
+    alert("Could not link shaders to program.");
+    G.detachShader(P,FS);G.detachShader(P,G.VS);
+    G.deleteProgram(P);P=0;return 0;//when varyings don't match?
+  } 
+  G.useProgram(P);
+  P.vertexPositionAttribute=G.getAttribLocation(P,"position");
+  G.enableVertexAttribArray(P.vertexPositionAttribute);
+  G.vertexAttribPointer(P.vertexPositionAttribute, G.VP.itemSize, G.FLOAT, false, 0, 0);
+  return P;
+}
+function pong(k){return Math.sin(k*k*.002)*.025;}
+function thud(k){let t=k/12000.,st=Math.sqrt(t);return Math.sin(st*400)*(1.-t)*.5;}
+function setup(){//initial setup
+  c.addEventListener('mousedown',mouseDown,false);
+  c.addEventListener('mouseup',mouseUp,false);
+  c.addEventListener('mousemove',mouseMove,false);
+  c.addEventListener('touchstart',touchStart,false);
+  c.addEventListener('touchmove',mouseMove,false);
+  c.addEventListener('touchend',mouseUp,false);
+  document.addEventListener('keydown',keyDown,false);
+  document.addEventListener('keyup',keyUp,false);
+  if(!performance.now)performance.now=Date.now;
+  G=c.getContext("webgl", { antialias: false, depth: false, alpha: false } );
+  G.getExtension('OES_texture_float');
+  G.viewportWidth=c.width;
+  G.viewportHeight=c.height;
+  G.VP=G.createBuffer();
+  G.bindBuffer(G.ARRAY_BUFFER, G.VP);
+  var vertices = [1,1,0,-1,1,0,1,-1,0,-1,-1,0];
+  G.bufferData(G.ARRAY_BUFFER,new Float32Array(vertices),G.STATIC_DRAW);
+  G.VP.itemSize = 3; G.VP.numItems = 4;
+  G.buf=0;G.clearColor(0.,0.,0.,1.);
+  const vs="attribute vec3 position;void main(void){gl_Position=vec4(position,1.0);}";
+  G.VS=getShader(vs,G.VERTEX_SHADER);
+  P=script2Prog(fragShader.textContent);if(!P)return;
+  uRes=G.getUniformLocation(P,"res");
+  uu=G.getUniformLocation(P,"u");
+  Audio([{samps:12000,sampleRate:12000,fill:pong},
+    {samps:12000,sampleRate:12000,fill:thud}]);
+  newGame();
+  paused=false;_draw();
+}
+function _draw(){//shader(s) to screen
+  if(paused)return;
+  loop();
+  G.useProgram(P);
+  G.uniform2f(uRes,c.width,c.height);
+  G.uniform1fv(uu,A);
+  G.clear(G.COLOR_BUFFER_BIT);
+  G.drawArrays(G.TRIANGLE_STRIP,0,G.VP.numItems);
+  setTimeout(_draw,25);
+}
+</script></head>
+<body onload="setup();">
+<canvas id="c" width="360" height="360"></canvas><br>
+<button onclick="fullScreen(c);">Full Screen</button><span id="msg"></span>
+</body></html>
