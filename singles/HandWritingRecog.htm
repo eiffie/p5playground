@@ -1,0 +1,52 @@
+<!DOCTYPE html><html><head><title>HandWritingRecog</title>
+<meta charset="UTF-8">
+<script>
+var G,MZ=0,MX,MY,OMX=0,OMY=0,HR=0,R=0,D=0,HRS=0;
+function mouseDown(e){e.preventDefault();MZ=1.0;if(HR)newHRS();}
+function mouseUp(e){e.preventDefault();MZ=0.0;if(HR)endHRS();}
+function mouseMove(e){e.preventDefault();if(e.changedTouches)e=e.changedTouches[0];
+  if(!(MZ && HR))return;
+  var rect=c.getBoundingClientRect();
+  MX=e.clientX-rect.left;
+  MY=e.clientY-rect.top;
+  if(HRS)HRS.addPoint({ x: MX, y: MY, t: Date.now()});
+  if(OMX){G.beginPath();G.moveTo(OMX,OMY);G.lineTo(MX,MY);G.stroke();}
+  OMX=MX;OMY=MY;
+}
+function touchStart(e){MZ=1.0;if(HR)newHRS();mouseMove(e);}
+
+async function setup(){
+  G=c.getContext("2d");
+  c.addEventListener('mousedown',mouseDown,false);
+  c.addEventListener('mouseup',mouseUp,false);
+  c.addEventListener('mousemove',mouseMove,false);
+  c.addEventListener('touchstart',touchStart,false);
+  c.addEventListener('touchmove',mouseMove,false);
+  c.addEventListener('touchend',mouseUp,false);
+  const modelConstraint = { languages: navigator.languages };
+  const modelDesc = await navigator.queryHandwritingRecognizer(modelConstraint);
+  //if(!modelDesc){alert("No handwriting support.");return;}
+  console.log(modelDesc);
+  try {R = await navigator.createHandwritingRecognizer(modelConstraint);} 
+  catch (e) {alert(e.toString());return;}
+}
+function beginHR(){if(!R)return;
+  HR=1;D=R.startDrawing();G.clearRect(0,0,c.width,c.height);
+  HRS=new HandwritingStroke();
+}
+async function endHR(){
+  HR=0;const predictions = await D.getPrediction();
+  console.log(predictions);
+  D.clear();
+}
+function newHRS(){
+  OMX=0;HRS.clear();
+}
+function endHRS(){
+  D.addStroke(HRS);
+}
+</script></head>
+<body onload="setup();">
+<button onclick="if(this.textContent==='>'){this.textContent='||';beginHR();}else{this.textContent='>';await endHR();}">&gt</button>
+<canvas id="c" width="360" height="360" style="border:1px solid #808080;"></canvas>
+</body></html>
