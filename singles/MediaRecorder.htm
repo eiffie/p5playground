@@ -1,0 +1,50 @@
+<html><head><script>
+const recordedChunks = [];var G,a=0,play;
+function startC(){
+  G=c.getContext('2d');
+  play=1;G.beginPath();G.moveTo(f(a*a*a)+60,f(a*a));
+  anim();
+}
+function f(a){return Math.cos(a)*120+120;}
+function anim(){
+  a+=.02;G.lineTo(f(a*a*a)+60,f(a*a));G.stroke();
+  if(play)setTimeout(anim,40);
+}
+function rec(secs){// Optional frames per second argument.
+  startC();
+  const stream = c.captureStream(25);
+  const options = { mimeType: "video/webm; codecs=vp9" };
+  const mediaRecorder = new MediaRecorder(stream, options);
+  mediaRecorder.ondataavailable = handleDataAvailable;
+  mediaRecorder.start();
+  setTimeout((event) => { log("stopping");
+    mediaRecorder.stop();play=0;
+  }, 1000*secs);
+}
+function handleDataAvailable(event) {
+  if (event.data.size > 0) {
+    log("data-available");
+    recordedChunks.push(event.data);
+    download();
+  } else {
+    log("no data");
+  }
+}
+function download() {
+  const blob = new Blob(recordedChunks, {
+    type: "video/webm"
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  document.body.appendChild(a);
+  a.style = "display: none";
+  a.href = url;
+  a.download = "test.webm";
+  a.click();
+  window.URL.revokeObjectURL(url);
+}
+function log(s){msg.textContent+=s+"\n";}
+</script>
+<body><canvas id="c" width="360" height="240"></canvas>
+<button onclick="try{rec(10);}catch(e){log(e.toString());}">&gt</button>
+<div id="msg"></div></body></html>
