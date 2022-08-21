@@ -1,0 +1,66 @@
+<!DOCTYPE html><html lang="en"><head><title>ImageCap</title>
+<meta charset="UTF-8">
+<meta name="description" content="Image Capture.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="ImageCap,HTML,javascript">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script>
+var imgCap=0,stream,track=0,iSec=0,iSen=0;
+async function asleep(ms){return new Promise(R=>setTimeout(R,ms));}
+async function TimeLapse(){
+  if(iSen<0){c.width=640;c.height=480;}else if(iSen>0){c.width=64;c.height=48;}
+  let G=c.getContext('2d'),A,L,C=Number(max.value),p=0;
+  if(iSen){L=c.width*c.height*(iSen<0?4:1);A=new Array(L);for(let i=0;i<L;i++)A[i]=iSen<0?0:128;}
+  try{while(iSec){let mot=true;p+=1;max.value=p;if(p>=C)iSec=0;
+      if(iSen){
+        G.drawImage(vid,0,0,c.width,c.height);
+        let idat=G.getImageData(0,0,c.width,c.height),a=0;
+        if(iSen>0){
+          for(let i=0;i<L;i++){let d=idat.data[i*4]-A[i];A[i]+=d;d/=256;a+=Math.abs(d);}
+          a/=L;if(a<iSen){mot=false;p-=1;}
+        }else{mot=false;
+          for(let i=0;i<L;i++)A[i]+=idat.data[i]/256;
+        }
+      }
+      if(mot){let blob=await imgCap.takePhoto();if(blob)download(blob,fname.value);}
+      await asleep(iSec*1000);
+    }if(track)track.stop();track=0;
+    if(iSen<0){let idat=G.getImageData(0,0,c.width,c.height)
+      for(let i=0;i<L;i++)idat.data[i]=Math.min(255,256*A[i]/C);
+      G.putImageData(idat,0,0);
+      c.toBlob(function(blob){download(blob,fname.value);});
+    }
+  }catch(e){log(e.toString());}
+}
+async function snap(i,j){try{
+  vid.srcObject=stream=await navigator.mediaDevices.getUserMedia({video:true});
+  track = stream.getVideoTracks()[0];
+  imgCap = new ImageCapture(track);
+  if(!i)imgCap.takePhoto().then((blob)=>{download(blob,fname.value);track.stop();});
+  else {iSec=i;iSen=j*j*j*j*j;await TimeLapse();}
+  }catch(e){log(e.toString());}
+}
+function download(blb,filename) {//handles any blob
+  var a=document.createElement("a"),url=URL.createObjectURL(blb);
+  a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},0);
+}
+function log(s){msg.textContent+=s+"\n";}
+</script></head>
+<body style="font-family:monospace;">
+File:<input type="text" id="fname" name="fname" value="test.png">
+<button onclick="snap(0,0);">Capture</button><br>
+Secs:<input type="text" id="secs" name="secs" value="60">
+<button onclick="if(this.textContent==='TLapse'){this.textContent='Stop';snap(Number(secs.value),0);}else{this.textContent='TLapse';iSec=0;}">TLapse</button><br>
+Sens:<input type="text" id="sens" name="sens" value="0.5">
+<button onclick="if(this.textContent==='Motion'){this.textContent='Stop';snap(Number(secs.value),Number(sens.value));}else{this.textContent='Motion';iSec=0;}">Motion</button><br>
+MaxI:<input type="text" id="max" name="max" value="100">
+<button onclick="if(this.textContent==='Accum'){this.textContent='Stop';snap(Number(secs.value),-1);}else{this.textContent='Accum';iSec=0;}">Accum</button><br>
+<div id="msg" style="color:red;"></div>
+<video id="vid" width="320" height="240" autoplay></video><br>
+<canvas id="c" width="64" height="48"></canvas>
+Capture single, time lapsed, motion detected or accumulated images.
+Enter a .png filename and optionally seconds between images, 
+motion sensitivity 0-1 and max images. You may have to allow both 
+camera and multiple downloads so wait for a few images to save. 
+</body></html>
