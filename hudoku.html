@@ -1,0 +1,130 @@
+<html><head><title>hudoku</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<script>
+"use strict";
+let g,A=new Array(9*9),B=new Array(9*9*9),M=new Array(9*9),N=new Array(9*9),H=0;
+let C=['#000000','#806020','#ff0000','#ff8000','#ffff00','#00ff00','#0000ff','#ff00ff','#808080','#ffffff','#ffffff'];
+let marked=true;
+function randi(i){return Math.floor(Math.random()*i);}
+function bx(y,x){return Math.floor(y/3)*3+Math.floor(x/3);}
+function bxcl(y,x){return (y%3)*3+(x%3);}
+function idx(b,c,t){return t==2?(c*9+b):t==1?(b*9+c):bx(b,c)*9+bxcl(b,c);}
+function bidx(b,c,d,t){return idx(b,c,t)*9+d;}
+function full(){for(let i=0;i<81;i++) if(A[i]==0) return false; return true;}
+function check(){let f=0;
+  for(let b=0;b<9;b++)for(let t=0;t<3;t++){
+    f=0;for(let c=0;c<9;c++)f+=A[idx(b,c,t)];if(f!=45)return false;
+  }return true;
+}
+function inrow(y,i){for(let j=0;j<9;j++)if(A[idx(y,j,1)]==i)return true;return false;}
+function inclm(x,i){for(let j=0;j<9;j++)if(A[idx(x,j,2)]==i)return true;return false;}
+function inbox(b,i){for(let j=0;j<9;j++)if(A[idx(b,j,0)]==i)return true;return false;}
+function setB(y,x,d,t,k){let i=bidx(y,x,d,t);if(!B[i]){B[i]=k;marked=true;}}
+function solve(){
+  for(let i=0;i<81*9;i++)B[i]=0;
+  marked=true;
+  while(!full() && marked){
+    marked=false;
+    for(let y=0;y<9;y++)for(let x=0;x<9;x++){
+      let j=0,d=-1;
+      for(let i=0;i<9;i++){
+        if(A[idx(y,x,1)]!=i+1 && !B[bidx(y,x,i,1)]){
+          let t=0;
+          if(A[idx(y,x,1)])t=1;
+          if(inrow(y,i+1) && !t)t=2;
+          if(inclm(x,i+1) && !t)t=3;
+          if(inbox(bx(y,x),i+1) && !t)t=4;
+          if(t)setB(y,x,i,1,t);
+        }
+        if(!B[bidx(y,x,i,1)]){j++;d=i;}//count them
+      }
+      if(A[idx(y,x,1)])continue;
+      if(j==1){A[idx(y,x,1)]=d+1;marked=true;continue;}
+      for(let d=0;d<9;d++)if(!B[bidx(y,x,d,1)]){let cnt=[0,0,0],b=bx(y,x);
+        for(let c=0;c<9;c++)for(let t=0;t<3;t++)if(B[bidx(t==2?x:t==1?y:b,c,d,t)])cnt[t]++;
+        if((cnt[0]==8)||(cnt[1]==8)||(cnt[2]==8)){A[idx(y,x,1)]=d+1;marked=true;break;}
+      }
+    }
+  }return full();
+}
+function newGame(){
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++)A[y*9+x]=0;
+  let t=[0,1,2,3,4,5,6,7,8];
+  for(let i=0;i<100;i++){
+    let j=randi(9),k=randi(9);
+    if(j!=k){let tmp=t[j];t[j]=t[k];t[k]=tmp;}
+  }
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++){
+    A[y*9+x]=t[((x+y*3+Math.floor(y/3))%9)]+1;
+  }
+  for(let i=0;i<100;i++){
+    let j=randi(9),k=Math.floor(j/3)*3+randi(3);
+    if(j!=k)for(let n=0;n<9;n++){let tmp=A[j*9+n];A[j*9+n]=A[k*9+n];A[k*9+n]=tmp;}
+    j=randi(9);k=Math.floor(j/3)*3+randi(3);
+    if(j!=k)for(let n=0;n<9;n++){let tmp=A[n*9+j];A[n*9+j]=A[n*9+k];A[n*9+k]=tmp;}
+  }
+  let D=new Array(9*9);
+  for(let i=0;i<81;i++){D[i]=i;M[i]=N[i]=A[i];}
+  for(let i=0;i<500;i++){let r1=randi(81),r2=randi(81),tmp=D[r1];D[r1]=D[r2];D[r2]=tmp;}
+  for(let i=0;i<81;i++){ 
+    let j=D[i];
+    A[j]=0;if(solve())N[j]=0;
+    for(let k=0;k<81;k++)A[k]=N[k];
+  }
+  let c=6;
+  while(c>0){let i=randi(81);if(A[i]){c--;A[i]=0;}}
+  draw();
+}
+function log(s){msg.textContent=s;}//+=s.toString()+" ";}  
+function setup(){
+  g=c.getContext('2d');
+  c.addEventListener('click',clicked,false);
+  newGame();
+}
+function clicked(e){
+  let rect=c.getBoundingClientRect();
+  let R=c.width/11;
+  let x=Math.floor(e.offsetX/R),y=Math.floor(e.offsetY/R);
+  if(y<1){
+    if(x<10)H=x;
+  }else if(y<10 && x>0 && x<10){
+    y-=1;x-=1;
+    let i=y*9+x;
+    if((H==0)||(A[i]==H*10))A[i]=H;
+    else if((A[i]==0)||(A[i]>=10))A[i]=(A[i]+H)*10;
+  }
+  draw();
+  for(let i=0;i<81;i++)if((A[i]>=10) || (A[i]==0))return;
+  if(check())log("Solved!");
+}
+function draw(){
+  g.clearRect(0,0,c.width,c.height);
+  g.shadowColor="#606060";
+  g.shadowBlur=3;
+  let R=c.width/11,R2=R/2,R3=R/3,R8=R/8,R9=R/9;
+  for(let i=0;i<11;i++){g.fillStyle=C[i];g.fillRect(R*i,0,R,R-4);}
+  g.fillStyle=C[H];g.fillRect(R*10,0,R,R);
+  for(let y=0;y<9;y++)for(let x=0;x<9;x++){
+    let i=y*9+x;
+    g.fillStyle=(A[i]<10?C[A[i]]:C[0]);g.fillRect(R*(x+1),R*(y+1),R,R);
+    if(A[i]>=10){
+      let j=Math.floor(A[i]/10);
+      while(j>0){
+        let c=j%10;
+        g.fillStyle=C[c];c-=1;
+        g.fillRect(R*(x+1)+R3*(c%3),R*(y+1)+R3*Math.floor(c/3),R3,R3);
+        j=Math.floor(j/10);
+      }
+    }
+    g.fillStyle='#00ffff';
+    if(y>0)if(N[i]||N[i-9]){g.beginPath();g.arc(R*(x+1)+R2,R*(y+1),R8,(M[i]<M[i-9]?0:3.14),(M[i]<M[i-9]?3.14:6.28));g.fill();}
+    if(x>0)if(N[i]||N[i-1]){g.beginPath();g.arc(R*(x+1),R*(y+1)+R2,R8,(M[i]>M[i-1]?1.57:4.71),(M[i]>M[i-1]?4.71:7.85));g.fill();}
+  }
+  g.fillStyle='#007f7f';g.fillRect(R*4-1,R,3,R*9);g.fillRect(R*7-1,R,3,R*9);
+  g.fillRect(R,R*4-1,R*9,3);g.fillRect(R,R*7-1,R*9,3);
+}
+
+</script></head>
+<body onload="onerror=(e)=>{alert(e.stack?e.stack:e.toString());};setup();" style="background:#000000;">
+<canvas id="c" width="360" height="360"></canvas>
+<div id="msg" style="color:green"></div></body></html>

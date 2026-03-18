@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en"><head><title>Baby IDE</title>
+<meta charset="UTF-8">
+<meta name="description" content="online/offline simple development environment.">
+<meta name="author" content="Allen Joseph Schunk">
+<meta name="keywords" content="IDE,eval,canvas,textarea,HTML,CSS,javascript,glsl">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+textarea{font-family:monospace;font-size:15px;line-height:17px;background:black;color:cyan;}
+*{margin:0;padding:0;}
+</style>
+<script>
+const lineHeight=17,startDir='downloads';//can be 'documents'
+var sUndo="",g,ofile={api:false,id:'ofile',dir:startDir,handle:0,url:""};
+let KEY=["html","head","body","title","script","style","input","textarea","canvas",
+ "text","file","checkbox","range","select","option","type","cols","rows","width","height",
+ "button","onload","onclick","onchange","id","meta","ul","li","br","b","div","span",
+ "table","tr","th","td","colspan","rowspan","section","this","in","out","inout","#define",
+ "function","return","let","var","const","uniform","while","if","else","break","name",
+ "font","family","color","background","wrap","border","left","top","right","bottom",
+ "position","absolute","disabled","display","none","true","false","size","value","new",
+ "vec2","vec3","for","float","int","vec4","void","struct","mat2","mat3","class"];
+function snews(typ){let s='<!DOCTYPE html><html><head><title></title>\n<meta charset="UTF-8">\n',sc="script";
+  let cb='<body onload="setup();">\n<canvas id="c" width="320" height="320"></canvas>\n</body></html>';
+  if(typ==="html")s+='</head>\n<body>\n</body></html>';
+  if(typ==="canvas")s+='<'+sc+'>\nvar G;\nfunction setup(){\n  G=c.getContext("2d");\n}\n</'+sc+'></head>\n'+cb;   
+  if(typ==="animate")s+='<'+sc+'>\nvar G;\nfunction setup(){\n  G=c.getContext("2d");\n  draw();\n}\n'+
+   'function draw(){\n  setTimeout(draw,40);\n}\n</'+sc+'></head>\n'+cb;
+  if(typ==="audio")s+='<'+sc+'>\nvar A,sndbuf;\nfunction setup(){\n  A=new AudioContext();\n'+
+   '  sndbuf=A.createBuffer(1,12000,48000);//channels,samples,sampsPerSec\n'+
+   '  let cd=sndbuf.getChannelData(0);\n  for(let k=0;k<12000;k++)cd[k]=Math.sin(k*k);\n'+
+   '\n}\nfunction plAy(){\n  let src=A.createBufferSource();\n  src.buffer=sndbuf;\n'+
+   '  src.connect(A.destination);src.start(0);\n}\n</'+sc+'></head>\n'+
+   '<body onload="setup();">\n<button onclick="plAy();">play</button>\n</body></html>';
+  if(typ==="WAG")s+='<'+sc+' id="fragShader" type="x-shader/x-fragment">precision highp float;\n'+
+   'uniform vec2 res;\nuniform float time;\nuniform float user;\nuniform float key;\n'+
+   'uniform vec3 mouse;\nvoid main(){\n  gl_FragColor=vec4(.5);\n}\n</'+sc+'>\n'+
+   '<'+sc+' src="WAG.js">//or insert WAG.js code here for single file\n</'+sc+'>\n<'+sc+'>\n'+
+   'function setup(){\n  G("c","fragShader",{onFrame:gameLoop});\n}\nfunction gameLoop{\n}\n</'+sc+'></head>\n'+ cb;
+  ta0.value=s;syncText();ta0.scrollTop=ta0.scrollLeft=0;syncScroll();
+}
+function spaces(i){var s=" ";for(let j=1;j<i;j++)s+=" ";return s;}
+function syncText(){
+  ta1.value=ta0.value;
+  for(let i=0;i<KEY.length;i++)ta1.value=ta1.value.replace(new RegExp("(?<![A-Za-z0-9])"+KEY[i]+"(?![A-Za-z0-9])","g"),spaces(KEY[i].length));
+}
+function syncScroll(){lin.scrollTop=ta1.scrollTop=ta0.scrollTop;ta1.scrollLeft=ta0.scrollLeft;}
+function keyDown(e){//log(e.keyCode);
+  if(e.keyCode==9){
+    if(ta0.selectionStart==ta0.selectionEnd){
+      ta0.selectionStart--;
+      ta0.setRangeText(ta0.value.charAt(ta0.selectionStart)+"  ");
+      ta0.selectionStart=ta0.selectionEnd=ta0.selectionStart+3;
+    }else{sUndo=ta0.value;
+      let s=(e.shiftKey?"":"  ")+ta0.value.substring(ta0.selectionStart+(e.shiftKey?2:0),ta0.selectionEnd);
+      s=s.replace(new RegExp("\n"+(e.shiftKey?"  ":""),"g"),"\n"+(e.shiftKey?"":"  "));
+      ta0.setRangeText(s);
+    }e.preventDefault();syncText();
+  }else if(e.keyCode==13 && (ta0.selectionStart==ta0.selectionEnd)){
+    ta0.selectionStart--;
+    let i=ta0.selectionStart;
+    let ind=ta0.value.charAt(ta0.selectionStart)+"\n";
+    while(i>0 && ta0.value.charCodeAt(i)!=10){i--};i++;
+    while(ta0.value.charCodeAt(i)==32){i++;ind+=" ";}
+    ta0.setRangeText(ind);
+    ta0.selectionStart=ta0.selectionEnd=ta0.selectionStart+ind.length;
+    e.preventDefault();syncText();
+  }
+}
+function setup(){
+  if(isSecureContext && typeof showSaveFilePicker!=='undefined')ofile.api=true;
+  if(!ofile.api){ta1.cols=ta0.cols=63;btnDir.style.display=drname.style.display='none';}
+  ta0.addEventListener('keydown',keyDown,false);
+  for(let i=1;i<1000;i++)lin.value+=i.toString()+"\n";
+}
+async function openDir(){
+  try{ofile.dir=await showDirectoryPicker({id:ofile.id,mode:'readwrite',startIn:'downloads'});}
+  catch(e){log(e.toString());}
+  if(ofile.dir)drname.value=ofile.dir.name;
+}
+async function resolvePath(){
+  fname.value=ofile.handle.name;
+  if(ofile.dir!==startDir){
+    let a=await ofile.dir.resolve(ofile.handle);
+    ofile.url="";for(let i=0;i<a.length;i++)ofile.url+=(i>0?"/":"")+a[i];
+  }else ofile.url=fname.value;
+}
+async function openFile(){
+  try{var handle=await showOpenFilePicker({id:ofile.id,startIn:ofile.dir,mode:'readwrite'});ofile.handle=handle[0];}catch(e){log(e.toString());return -1;}
+  if(!ofile.handle)return -1;
+  if(ofile.handle.kind!=='file'){ofile.handle=0;log(ofile.handle.kind+" not allowed");return -1;}
+  if(await ofile.handle.queryPermission({mode:'readwrite'})!=='granted')
+    if(await ofile.handle.requestPermission({mode:'readwrite'})!=='granted')
+      {log("permission denied");return -1;}
+  await resolvePath();
+  const file=await ofile.handle.getFile();
+  return openf(file);
+}
+function openf(file){
+  sUndo=ta0.value;
+  var fr=new FileReader();
+  fr.onload=function(){ta0.value=fr.result;syncAll();}; 
+  fr.readAsText(file);return 0;
+}
+async function fwrite(){
+  let writable;try{writable=await ofile.handle.createWritable();}catch(e){log(e.toString());return -1;}
+  await writable.write(ta0.value);
+  await writable.close();return 0;
+}
+async function save(){
+  if(!ofile.api){return saveAsBlob();}//no FileSystemAccess save to downloads
+  if(!ofile.handle){return await saveAsFile();}//haven't touched a file yet
+  if(ofile.handle.name!==fname.value){return await saveAsFile();}//changed name
+  return await fwrite();
+}
+async function saveAsFile(){
+  try{ofile.handle=await showSaveFilePicker({id:ofile.id,startIn:ofile.dir,suggestedName:fname.value});}catch(e){log(e.toString());return -1;}
+  if(!ofile.handle)return -1;
+  if(await ofile.handle.queryPermission({mode:'readwrite'})!=='granted')
+    if(await ofile.handle.requestPermission({mode:'readwrite'})!=='granted')
+      {log("permission denied");return -1;}
+  await resolvePath();
+  return await fwrite();
+} 
+function saveAsBlob(){//for android
+  var blb=new Blob([ta0.value], {type: 'text/plain'});
+  var a=document.createElement("a"),url=URL.createObjectURL(blb);
+  a.href=url;//create a link, click it and remove link and url
+  a.download=fname.value;ofile.url=0;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },0);return 0;
+}
+function clear(){tl.value='';}
+function log(o){//list all methods and properties of an object or display value if not
+  if(typeof(o)!='object'){tl.value+=o+'\n';return;}
+  let props=new Set(),co=o;
+  do{Object.getOwnPropertyNames(co).map(item=>props.add(item));}
+  while((co=Object.getPrototypeOf(co)));
+  tl.value+=[...props.keys()].map(item=>' '+item+(typeof o[item]==='function'?'('+o[item].length+')'
+   :typeof o[item]==='object'?'{}':'')).sort()+'\n';
+}
+function runEval(){try{eval(te.value);}catch(e){log(e.toString());}}
+function syncAll(){syncText();syncScroll();}//"-auto-open-devtools-for-tab",
+async function run(){let err=await save();if(!err && ofile.url)window.open(ofile.url,"_blank");}
+function goto(i){ta0.scrollTop=(i-1)*lineHeight;syncScroll();}
+function undo(){if(confirm('replace all text?')){var s=ta0.value;ta0.value=sUndo;sUndo=s;syncAll();}}
+</script></head>
+<body onload="setup();" bgcolor="grey" style="font-family:sans-serif;">
+<table><tr><td id="sizer" width="705px">
+<button id="btnDir" onclick="if(ofile.api)openDir();">dir</button>
+<input type="text" id="drname" name="drname" value="downloads" size="8">
+<button onclick="if(ofile.api)openFile();else opnfile.click();">open</button>
+<input id="opnfile" name="opnfile" type="file" style="display:none;"
+ onchange="fname.value=this.files[0].name;openf(this.files[0]);">
+<input type="text" id="fname" name="fname" value="test.htm" size="8">
+<button onclick="save();">save</button>
+<button onclick="run();">run</button>
+<select id="snew" name="snew" onchange="var b=ta0.value.length==0;if(!b)b=confirm('replace all text?');if(b)snews(this.value);">
+ <option value="blank">new</option>
+ <option value="blank">blank</option>
+ <option value="html">html</option>
+ <option value="canvas">canvas</option>
+ <option value="animate">animate</option>
+ <option value="audio">audio</option>
+ <option value="WAG">WAG.js</option>
+</select>
+<input type="text" id="ftxt" name="ftxt" size="8">
+<button onclick="ta0.focus();find(ftxt.value);">find</button>
+<button onclick="goto(Number(ftxt.value));">goto</button>
+<input type="text" id="rtxt" name="rtxt" size="8">
+<button onclick="sUndo=ta0.value;ta0.value=ta0.value.replace(new RegExp(ftxt.value,'g'),rtxt.value);syncAll();">rep</button>
+<button onclick="undo();">undo</button>
+</td><td><button onclick="runEval();">eval</button>
+<button onclick="log(ta0.value.substring(ta0.selectionStart,ta0.selectionEnd));">log</button>
+<button onclick="hlpF.src='bIDEHelp.htm#'+ta0.value.substring(ta0.selectionStart,ta0.selectionEnd);">help</button>
+</td></tr><tr><td>
+<textarea id="lin" cols="3" rows="31"
+  style="position:absolute;top:24px;left:0;outline:none;disabled:true;color:grey;resize:none;overflow:hidden;"></textarea>
+<textarea id="ta0" cols="80" rows="30" autocorrect="off" spellcheck="false" autocapitalize="none" wrap="off" textprediction="false"
+  style="position:absolute;top:24px;left:30px;outline:none;z-index:1;background:transparent;color:rgba(0,255,255,0.5)" oninput="syncText();" onscroll="syncScroll();""></textarea>
+<textarea id="ta1" cols="80" rows="30" autocorrect="off" spellcheck="false" autocapitalize="none" wrap="off" textprediction="false"
+  style="position:absolute;top:24px;left:30px;outline:none;z-index:0;color:rgb(255,128,128);"></textarea>
+</td><td>
+<textarea id="te" name="te" rows="14" cols="40" autocorrect="off" spellcheck="false"
+ autocapitalize="none" wrap="off" textprediction="false">
+clear();//g=global var
+log(window);//value,props,methods
+</textarea><br>
+<textarea id="tl" name="tl" rows="15" cols="40" autocorrect="off" spellcheck="false"
+ autocapitalize="none" disabled="true"></textarea>
+</td></tr><tr><td colspan="2">
+<iframe src="bIDEHelp.htm#babyIDE" id="hlpF" width="100%" height="75px"></iframe>
+</tr></table>
+</body></html>
